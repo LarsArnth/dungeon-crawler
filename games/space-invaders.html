@@ -1,0 +1,575 @@
+<!DOCTYPE html>
+<html lang="da">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>RUM INVASION</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body {
+    background: #0d0d1a;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    min-height: 100vh;
+    font-family: 'Courier New', monospace;
+    color: #f8f8f2;
+    overflow: hidden;
+  }
+  #game-container {
+    position: relative;
+    border: 2px solid #e94560;
+    border-radius: 4px;
+  }
+  canvas {
+    display: block;
+    image-rendering: pixelated;
+  }
+  #controls {
+    margin-top: 8px;
+    display: flex;
+    gap: 12px;
+    align-items: center;
+  }
+  .btn {
+    background: #e94560;
+    color: #f8f8f2;
+    border: none;
+    padding: 8px 16px;
+    font-family: 'Courier New', monospace;
+    font-size: 14px;
+    cursor: pointer;
+    border-radius: 4px;
+    transition: background 0.15s;
+  }
+  .btn:hover { background: #ff6b81; }
+  #highscore-display {
+    margin-top: 6px;
+    font-size: 13px;
+    color: #bd93f9;
+  }
+</style>
+</head>
+<body>
+<div id="game-container">
+  <canvas id="game" width="560" height="420"></canvas>
+</div>
+<div id="controls">
+  <button class="btn" id="btn-back" onclick="goBack()" style="display:none;">Tilbage til menuen</button>
+</div>
+<div id="highscore-display">Bedste Score: <span id="highscore-val">0</span></div>
+
+<script>
+// ============================================================
+// RUM INVASION — Space Invaders Clone
+// ============================================================
+
+const canvas = document.getElementById('game');
+const ctx = canvas.getContext('2d');
+const W = canvas.width;   // 560
+const H = canvas.height;  // 420
+const TILE = 28;          // 28px tiles
+const COLS = W / TILE;    // 20
+const ROWS = H / TILE;    // 15
+
+// Colors from spec
+const BG = '#0d0d1a';
+const PLAYER_COLOR = '#50fa7b';
+const PROJECTILE_COLOR = '#ffb86c';
+const ALIEN_1 = '#ff5555';  // red diamond (top row)
+const ALIEN_2 = '#6272a4';  // blue square (middle row)
+const ALIEN_3 = '#ffb86c';  // orange blob (bottom row)
+
+// ============================================================
+// Game State
+// ============================================================
+let state = 'menu'; // 'menu', 'playing', 'gameover'
+let score = 0;
+let wave = 1;
+let highScore = parseInt(localStorage.getItem('space-invaders-highscore')) || 0;
+document.getElementById('highscore-val').textContent = highScore;
+
+// Player
+let player = { x: W / 2 - (5 * TILE) / 2, y: H - 2 * TILE, w: 5 * TILE, h: TILE, speed: 4 };
+let keys = {};
+let lastShot = 0;
+const SHOT_COOLDOWN = 300;
+
+// Projectiles
+let projectiles = [];
+
+// Aliens
+let aliens = [];
+let alienDir = 1;
+let alienSpeed = 1;
+let alienDropAmount = TILE * 0.4;
+let alienMoveTimer = 0;
+let alienMoveInterval = 30; // frames between alien moves
+
+// Stars
+let stars = [];
+for (let i = 0; i < 60; i++) {
+  stars.push({ x: Math.random() * W, y: Math.random() * H, s: Math.random() * 1.5 + 0.5, b: Math.random() });
+}
+
+// Animation frame for alien animation (walking)
+let alienAnimFrame = 0;
+
+// ============================================================
+// Input
+// ============================================================
+document.addEventListener('keydown', e => {
+  keys[e.key] = true;
+  if ((e.key === ' ' || e.key === 'z' || e.key === 'Z') && state === 'playing') {
+    e.preventDefault();
+    shoot();
+  }
+  if ((e.key === ' ' || e.key === 'Enter') && state === 'menu') {
+    e.preventDefault();
+    startGame();
+  }
+  if ((e.key === ' ' || e.key === 'Enter') && state === 'gameover') {
+    e.preventDefault();
+    startGame();
+  }
+});
+document.addEventListener('keyup', e => { keys[e.key] = false; });
+
+// ============================================================
+// Aliens
+// ============================================================
+function initAliens() {
+  aliens = [];
+  const rows = 3;
+  const cols = 6;
+  const spacingX = TILE * 1.4;
+  const spacingY = TILE * 1.4;
+  const startX = (W - (cols - 1) * spacingX) / 2;
+  const startY = TILE + 20;
+
+  for (let r = 0; r < rows; r++) {
+    for (let c = 0; c < cols; c++) {
+      let type, points, w, h;
+      if (r === 0) {
+        type = 1; points = 2; w = TILE * 0.6; h = TILE * 0.6;
+      } else if (r === 1) {
+        type = 2; points = 1; w = TILE; h = TILE;
+      } else {
+        type = 3; points = 1; w = TILE * 1.2; h = TILE;
+      }
+      aliens.push({
+        x: startX + c * spacingX,
+        y: startY + r * spacingY,
+        w: w,
+        h: h,
+        type: type,
+        points: points,
+        alive: true
+      });
+    }
+  }
+
+  alienDir = 1;
+  // Speed increases with wave
+  alienSpeed = 1 + (wave - 1) * 0.3;
+  alienMoveInterval = Math.max(8, 30 - (wave - 1) * 3);
+  alienMoveTimer = 0;
+}
+
+// ============================================================
+// Shooting
+// ============================================================
+function shoot() {
+  const now = Date.now();
+  if (now - lastShot < SHOT_COOLDOWN) return;
+  lastShot = now;
+  projectiles.push({
+    x: player.x + player.w / 2 - TILE / 6,
+    y: player.y,
+    w: TILE / 3,
+    h: TILE * 0.8,
+    speed: -6
+  });
+}
+
+// ============================================================
+// Collision (AABB)
+// ============================================================
+function aabb(a, b) {
+  return a.x < b.x + b.w && a.x + a.w > b.x && a.y < b.y + b.h && a.y + a.h > b.y;
+}
+
+// ============================================================
+// Start / Restart
+// ============================================================
+function startGame() {
+  state = 'playing';
+  score = 0;
+  wave = 1;
+  player.x = W / 2 - (5 * TILE) / 2;
+  projectiles = [];
+  document.getElementById('btn-back').style.display = 'inline-block';
+  initAliens();
+}
+
+function goBack() {
+  state = 'menu';
+  document.getElementById('btn-back').style.display = 'none';
+  if (window.parent) {
+    window.parent.postMessage({ type: 'back' }, '*');
+  }
+}
+
+function gameOver() {
+  state = 'gameover';
+  if (score > highScore) {
+    highScore = score;
+    localStorage.setItem('space-invaders-highscore', highScore);
+    document.getElementById('highscore-val').textContent = highScore;
+  }
+}
+
+// ============================================================
+// Draw Functions
+// ============================================================
+function drawStars() {
+  for (const s of stars) {
+    s.b += (Math.random() - 0.5) * 0.05;
+    s.b = Math.max(0.1, Math.min(1, s.b));
+    ctx.fillStyle = `rgba(255,255,255,${s.b * 0.5})`;
+    ctx.fillRect(Math.floor(s.x), Math.floor(s.y), Math.ceil(s.s), Math.ceil(s.s));
+  }
+}
+
+function drawPlayer() {
+  // Green triangle/arrow shape
+  ctx.fillStyle = PLAYER_COLOR;
+  const cx = player.x + player.w / 2;
+  const bx = player.x;
+  const by = player.y;
+  const bw = player.w;
+  const bh = player.h;
+  // Arrow shape: wider at bottom, pointed at top
+  ctx.beginPath();
+  ctx.moveTo(cx, by);           // top center (point)
+  ctx.lineTo(cx + bw / 2, by + bh);  // bottom right
+  ctx.lineTo(cx + bw / 4, by + bh);
+  ctx.lineTo(cx - bw / 4, by + bh);
+  ctx.lineTo(cx - bw / 2, by + bh);  // bottom left
+  ctx.closePath();
+  ctx.fill();
+
+  // Cockpit detail
+  ctx.fillStyle = '#69ff9e';
+  ctx.fillRect(cx - 2, by + bh * 0.3, 4, bh * 0.25);
+}
+
+function drawProjectile(p) {
+  ctx.fillStyle = PROJECTILE_COLOR;
+  ctx.fillRect(Math.floor(p.x), Math.floor(p.y), Math.floor(p.w), Math.floor(p.h));
+  // Glow effect
+  ctx.fillStyle = `rgba(255,184,108,0.3)`;
+  ctx.fillRect(Math.floor(p.x) - 1, Math.floor(p.y) - 1, Math.floor(p.w) + 2, Math.floor(p.h) + 2);
+}
+
+function drawAlien(a) {
+  if (!a.alive) return;
+  const cx = a.x + a.w / 2;
+  const cy = a.y + a.h / 2;
+
+  if (a.type === 1) {
+    // Alien type 1: red diamond shape
+    ctx.fillStyle = ALIEN_1;
+    ctx.beginPath();
+    ctx.moveTo(cx, a.y);           // top
+    ctx.lineTo(a.x + a.w, cy);     // right
+    ctx.lineTo(cx, a.y + a.h);     // bottom
+    ctx.lineTo(a.x, cy);           // left
+    ctx.closePath();
+    ctx.fill();
+    // Eyes
+    ctx.fillStyle = BG;
+    ctx.fillRect(cx - 4, cy - 2, 3, 3);
+    ctx.fillRect(cx + 2, cy - 2, 3, 3);
+  } else if (a.type === 2) {
+    // Alien type 2: blue square with protrusions (antennae)
+    ctx.fillStyle = ALIEN_2;
+    ctx.fillRect(a.x, a.y, a.w, a.h);
+    // Protrusions (antennae)
+    const protrusion = 4;
+    ctx.fillRect(a.x + 4, a.y - protrusion, 3, protrusion);
+    ctx.fillRect(a.x + a.w - 7, a.y - protrusion, 3, protrusion);
+    // Bottom protrusions (legs)
+    ctx.fillRect(a.x + 4, a.y + a.h, 3, protrusion);
+    ctx.fillRect(a.x + a.w - 7, a.y + a.h, 3, protrusion);
+    // Eyes
+    ctx.fillStyle = BG;
+    ctx.fillRect(a.x + 6, a.y + a.h * 0.35, 4, 4);
+    ctx.fillRect(a.x + a.w - 10, a.y + a.h * 0.35, 4, 4);
+  } else if (a.type === 3) {
+    // Alien type 3: orange blob/round shape
+    ctx.fillStyle = ALIEN_3;
+    ctx.beginPath();
+    ctx.ellipse(cx, cy, a.w / 2, a.h / 2, 0, 0, Math.PI * 2);
+    ctx.fill();
+    // Eyes
+    ctx.fillStyle = BG;
+    ctx.beginPath();
+    ctx.arc(cx - 4, cy - 2, 2.5, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.beginPath();
+    ctx.arc(cx + 4, cy - 2, 2.5, 0, Math.PI * 2);
+    ctx.fill();
+    // Mouth
+    ctx.strokeStyle = BG;
+    ctx.lineWidth = 1.5;
+    ctx.beginPath();
+    ctx.arc(cx, cy + 3, 3, 0.1, Math.PI - 0.1);
+    ctx.stroke();
+  }
+}
+
+// ============================================================
+// HUD
+// ============================================================
+function drawHUD() {
+  // Score
+  ctx.fillStyle = '#f8f8f2';
+  ctx.font = '14px "Courier New", monospace';
+  ctx.textAlign = 'left';
+  ctx.fillText(`Score: ${score}`, 8, 16);
+
+  // Wave
+  ctx.textAlign = 'center';
+  ctx.fillText(`Bølge ${wave}`, W / 2, 16);
+
+  // High score
+  ctx.textAlign = 'right';
+  ctx.fillText(`Bedste: ${highScore}`, W - 8, 16);
+}
+
+// ============================================================
+// Menu / Game Over Screens
+// ============================================================
+function drawMenu() {
+  // Title
+  ctx.fillStyle = '#e94560';
+  ctx.font = 'bold 48px "Courier New", monospace';
+  ctx.textAlign = 'center';
+  ctx.fillText('RUM INVASION', W / 2, H / 2 - 60);
+
+  // Subtitle
+  ctx.fillStyle = '#bd93f9';
+  ctx.font = '16px "Courier New", monospace';
+  ctx.fillText('Forsvar Jorden mod aliens!', W / 2, H / 2 - 20);
+
+  // Instructions
+  ctx.fillStyle = '#f8f8f2';
+  ctx.font = '13px "Courier New", monospace';
+  ctx.fillText('A/D eller Pilevenstre/venstre — Bevæg', W / 2, H / 2 + 20);
+  ctx.fillText('Mellemlrum eller Z — Skyd', W / 2, H / 2 + 42);
+
+  // Start button
+  ctx.fillStyle = '#50fa7b';
+  ctx.font = 'bold 18px "Courier New", monospace';
+  ctx.fillText('Tryk MELLEMNUMMER for at starte', W / 2, H / 2 + 90);
+
+  // High score
+  ctx.fillStyle = '#bd93f9';
+  ctx.font = '14px "Courier New", monospace';
+  ctx.fillText(`Bedste Score: ${highScore}`, W / 2, H / 2 + 130);
+}
+
+function drawGameOver() {
+  // Dim overlay
+  ctx.fillStyle = 'rgba(13,13,26,0.7)';
+  ctx.fillRect(0, 0, W, H);
+
+  ctx.fillStyle = '#e94560';
+  ctx.font = 'bold 36px "Courier New", monospace';
+  ctx.textAlign = 'center';
+  ctx.fillText('SPIL SLUT!', W / 2, H / 2 - 50);
+
+  ctx.fillStyle = '#f8f8f2';
+  ctx.font = '18px "Courier New", monospace';
+  ctx.fillText(`Score: ${score}`, W / 2, H / 2);
+  ctx.fillText(`Bølge nået: ${wave}`, W / 2, H / 2 + 30);
+
+  if (score >= highScore && score > 0) {
+    ctx.fillStyle = '#bd93f9';
+    ctx.font = 'bold 16px "Courier New", monospace';
+    ctx.fillText('NY BEDSTE SCORE!', W / 2, H / 2 + 65);
+  }
+
+  ctx.fillStyle = '#50fa7b';
+  ctx.font = '16px "Courier New", monospace';
+  ctx.fillText('Tryk MELLEMNUMMER for at spille igen', W / 2, H / 2 + 100);
+}
+
+// ============================================================
+// Game Over check
+// ============================================================
+function checkAlienBottom() {
+  for (const a of aliens) {
+    if (a.alive && a.y + a.h >= H - 2 * TILE) {
+      return true;
+    }
+  }
+  return false;
+}
+
+function checkPlayerCollision() {
+  for (const a of aliens) {
+    if (!a.alive) continue;
+    if (aabb(player, a)) return true;
+  }
+  return false;
+}
+
+// ============================================================
+// Update
+// ============================================================
+function update() {
+  if (state !== 'playing') return;
+
+  // Player movement
+  if (keys['a'] || keys['A'] || keys['ArrowLeft']) {
+    player.x -= player.speed;
+  }
+  if (keys['d'] || keys['D'] || keys['ArrowRight']) {
+    player.x += player.speed;
+  }
+  // Clamp
+  player.x = Math.max(0, Math.min(W - player.w, player.x));
+
+  // Update projectiles
+  for (let i = projectiles.length - 1; i >= 0; i--) {
+    const p = projectiles[i];
+    p.y += p.speed;
+    if (p.y < -p.h) {
+      projectiles.splice(i, 1);
+      continue;
+    }
+    // Collision with aliens
+    for (const a of aliens) {
+      if (!a.alive) continue;
+      if (aabb(p, a)) {
+        a.alive = false;
+        score += a.points;
+        projectiles.splice(i, 1);
+        break;
+      }
+    }
+  }
+
+  // Alien movement (timer-based for retro feel)
+  alienMoveTimer++;
+  if (alienMoveTimer >= alienMoveInterval) {
+    alienMoveTimer = 0;
+    alienAnimFrame = 1 - alienAnimFrame;
+
+    let hitEdge = false;
+    for (const a of aliens) {
+      if (!a.alive) continue;
+      if ((alienDir === 1 && a.x + a.w >= W - 4) || (alienDir === -1 && a.x <= 4)) {
+        hitEdge = true;
+        break;
+      }
+    }
+
+    if (hitEdge) {
+      alienDir *= -1;
+      for (const a of aliens) {
+        if (a.alive) {
+          a.y += alienDropAmount;
+        }
+      }
+    } else {
+      for (const a of aliens) {
+        if (a.alive) {
+          a.x += alienDir * alienSpeed * 2;
+        }
+      }
+    }
+
+    // Check game over conditions
+    if (checkAlienBottom()) {
+      gameOver();
+      return;
+    }
+    if (checkPlayerCollision()) {
+      gameOver();
+      return;
+    }
+  }
+
+  // Check if all aliens dead
+  const aliveCount = aliens.filter(a => a.alive).length;
+  if (aliveCount === 0) {
+    wave++;
+    projectiles = [];
+    initAliens();
+  }
+}
+
+// ============================================================
+// Render
+// ============================================================
+function render() {
+  // Clear
+  ctx.fillStyle = BG;
+  ctx.fillRect(0, 0, W, H);
+
+  // Stars
+  drawStars();
+
+  // HUD always visible during gameplay
+  if (state === 'playing') {
+    drawHUD();
+  }
+
+  if (state === 'menu') {
+    drawMenu();
+    return;
+  }
+
+  if (state === 'playing') {
+    // Draw aliens
+    for (const a of aliens) {
+      drawAlien(a);
+    }
+
+    // Draw projectiles
+    for (const p of projectiles) {
+      drawProjectile(p);
+    }
+
+    // Draw player
+    drawPlayer();
+  }
+
+  if (state === 'gameover') {
+    // Draw remaining aliens and player dimmed
+    ctx.globalAlpha = 0.3;
+    for (const a of aliens) drawAlien(a);
+    drawPlayer();
+    ctx.globalAlpha = 1;
+    drawGameOver();
+  }
+}
+
+// ============================================================
+// Game Loop
+// ============================================================
+function gameLoop() {
+  update();
+  render();
+  requestAnimationFrame(gameLoop);
+}
+
+// Start the loop
+gameLoop();
+</script>
+</body>
+</html>

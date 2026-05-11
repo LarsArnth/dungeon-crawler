@@ -1,0 +1,1373 @@
+<!DOCTYPE html>
+<html lang="da">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Dungeon Crawler</title>
+<style>
+  /* ---------- Page layout ---------- */
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body {
+    background: #0d0d1a;
+    color: #eee;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    min-height: 100vh;
+    font-family: 'Courier New', monospace;
+    padding: 16px;
+    overflow-x: hidden;
+  }
+
+  /* ---------- Title header ---------- */
+  #header {
+    text-align: center;
+    margin-bottom: 12px;
+  }
+  #header h1 {
+    font-size: 1.8rem;
+    letter-spacing: 4px;
+    color: #e94560;
+    text-shadow: 0 0 12px rgba(233,69,96,0.5), 0 0 24px rgba(233,69,96,0.2);
+    margin-bottom: 4px;
+  }
+  #header p {
+    font-size: 0.8rem;
+    color: #666;
+    letter-spacing: 1px;
+  }
+
+  /* ---------- Buttons area ---------- */
+  #button-bar {
+    display: flex;
+    gap: 10px;
+    margin-bottom: 12px;
+    flex-wrap: wrap;
+    justify-content: center;
+  }
+  .btn {
+    padding: 8px 20px;
+    font-size: 0.85rem;
+    font-family: 'Courier New', monospace;
+    font-weight: bold;
+    border: 1px solid #0f3460;
+    border-radius: 4px;
+    cursor: pointer;
+    letter-spacing: 1px;
+    transition: all 0.2s;
+  }
+  .btn-save {
+    background: #0f3460;
+    color: #50fa7b;
+    border-color: #50fa7b;
+  }
+  .btn-save:hover {
+    background: #50fa7b;
+    color: #0d0d1a;
+  }
+  .btn-load {
+    background: #0f3460;
+    color: #ffb86c;
+    border-color: #ffb86c;
+  }
+  .btn-load:hover {
+    background: #ffb86c;
+    color: #0d0d1a;
+  }
+  .btn-back {
+    background: #1a1a3a;
+    color: #aaa;
+    border-color: #333;
+  }
+  .btn-back:hover {
+    background: #333;
+    color: #fff;
+  }
+
+  /* ---------- Main area: sidebar + grid ---------- */
+  #main {
+    display: flex;
+    flex-direction: row;
+    gap: 20px;
+    align-items: flex-start;
+  }
+
+  /* ---------- Canvas ---------- */
+  canvas#game {
+    border: 2px solid #e94560;
+    border-radius: 4px;
+    box-shadow: 0 0 20px rgba(233,69,96,0.15), inset 0 0 20px rgba(0,0,0,0.3);
+    flex-shrink: 0;
+  }
+
+  /* ---------- Sidebar ---------- */
+  #sidebar {
+    width: 210px;
+    background: #12122a;
+    border: 1px solid #0f3460;
+    border-radius: 8px;
+    padding: 16px;
+    font-size: 0.85rem;
+    flex-shrink: 0;
+    box-shadow: 0 0 10px rgba(0,0,0,0.3);
+  }
+  #sidebar h2 {
+    font-size: 1rem;
+    color: #e94560;
+    margin-bottom: 12px;
+    text-align: center;
+    letter-spacing: 2px;
+    border-bottom: 1px solid #0f3460;
+    padding-bottom: 8px;
+  }
+  .stat-row {
+    display: flex;
+    justify-content: space-between;
+    margin-bottom: 8px;
+    align-items: center;
+  }
+  .stat-label {
+    color: #888;
+  }
+  .stat-value {
+    color: #fff;
+    font-weight: bold;
+  }
+  /* HP bar */
+  #hp-bar-container {
+    width: 100%;
+    height: 16px;
+    background: #0a0a1a;
+    border: 1px solid #0f3460;
+    border-radius: 3px;
+    margin-top: 4px;
+    overflow: hidden;
+  }
+  #hp-bar {
+    height: 100%;
+    background: linear-gradient(90deg, #e94560, #ff6b6b);
+    transition: width 0.3s ease;
+    width: 100%;
+    border-radius: 2px;
+  }
+  #xp-bar-container {
+    width: 100%;
+    height: 10px;
+    background: #0a0a1a;
+    border: 1px solid #0f3460;
+    border-radius: 3px;
+    margin-top: 4px;
+    overflow: hidden;
+  }
+  #xp-bar {
+    height: 100%;
+    background: linear-gradient(90deg, #50fa7b, #00ff88);
+    transition: width 0.3s ease;
+    width: 0%;
+    border-radius: 2px;
+  }
+  #inventory-list {
+    list-style: none;
+    margin-top: 6px;
+    font-size: 0.8rem;
+    color: #ccc;
+  }
+  #inventory-list li {
+    padding: 2px 0;
+  }
+  .empty-inv {
+    color: #555;
+    font-style: italic;
+  }
+
+  /* ---------- Combat log ---------- */
+  #combat-log {
+    width: 100%;
+    max-width: 600px;
+    margin-top: 14px;
+    background: #0a0a1a;
+    border: 1px solid #0f3460;
+    border-radius: 6px;
+    padding: 10px 14px;
+    height: 150px;
+    overflow-y: auto;
+    font-size: 0.8rem;
+    line-height: 1.6;
+    box-shadow: 0 0 8px rgba(0,0,0,0.3);
+  }
+  #combat-log .log-entry {
+    padding: 1px 0;
+  }
+  .log-combat  { color: #ff6b6b; }
+  .log-heal    { color: #50fa7b; }
+  .log-level   { color: #ffb86c; }
+  .log-info    { color: #888; }
+  .log-levelup { color: #ffd700; font-weight: bold; }
+
+  /* ---------- Level-up overlay ---------- */
+  #levelup-flash {
+    display: none;
+    position: fixed;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    background: rgba(255, 215, 0, 0.12);
+    border: 2px solid #ffd700;
+    border-radius: 10px;
+    padding: 20px 40px;
+    font-size: 1.5rem;
+    color: #ffd700;
+    z-index: 100;
+    text-align: center;
+    text-shadow: 0 0 10px #ffd700;
+    animation: flash-pulse 1.5s ease-in-out forwards;
+  }
+  @keyframes flash-pulse {
+    0%   { opacity: 0; transform: translate(-50%, -50%) scale(0.8); }
+    20%  { opacity: 1; transform: translate(-50%, -50%) scale(1.1); }
+    80%  { opacity: 1; transform: translate(-50%, -50%) scale(1); }
+    100% { opacity: 0; transform: translate(-50%, -50%) scale(0.9); }
+  }
+
+  /* ---------- Game Over overlay ---------- */
+  #gameover-overlay {
+    display: none;
+    position: fixed;
+    top: 0; left: 0; right: 0; bottom: 0;
+    background: rgba(0, 0, 0, 0.88);
+    z-index: 200;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 20px;
+  }
+  #gameover-overlay.show {
+    display: flex;
+  }
+  #gameover-overlay h2 {
+    font-size: 2.5rem;
+    color: #e94560;
+    letter-spacing: 4px;
+    text-shadow: 0 0 20px #e94560, 0 0 40px rgba(233,69,96,0.3);
+  }
+  #gameover-overlay p {
+    font-size: 1.1rem;
+    color: #aaa;
+  }
+  #gameover-overlay button {
+    padding: 12px 32px;
+    font-size: 1.1rem;
+    font-family: 'Courier New', monospace;
+    font-weight: bold;
+    background: #e94560;
+    color: #fff;
+    border: 2px solid #ff6b6b;
+    border-radius: 6px;
+    cursor: pointer;
+    letter-spacing: 1px;
+    transition: background 0.2s;
+  }
+  #gameover-overlay button:hover {
+    background: #ff6b6b;
+  }
+
+  /* ---------- Save prompt overlay ---------- */
+  #save-prompt-overlay {
+    display: none;
+    position: fixed;
+    top: 0; left: 0; right: 0; bottom: 0;
+    background: rgba(0, 0, 0, 0.85);
+    z-index: 300;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 16px;
+  }
+  #save-prompt-overlay.show {
+    display: flex;
+  }
+  #save-prompt-overlay h2 {
+    font-size: 1.5rem;
+    color: #ffb86c;
+    text-shadow: 0 0 10px rgba(255,184,108,0.4);
+  }
+  #save-prompt-overlay button {
+    padding: 10px 28px;
+    font-size: 1rem;
+    font-family: 'Courier New', monospace;
+    font-weight: bold;
+    border-radius: 6px;
+    cursor: pointer;
+    letter-spacing: 1px;
+    transition: all 0.2s;
+    margin: 0 6px;
+  }
+  #save-prompt-overlay .btn-load-prompt {
+    background: #0f3460;
+    color: #ffb86c;
+    border: 2px solid #ffb86c;
+  }
+  #save-prompt-overlay .btn-load-prompt:hover {
+    background: #ffb86c;
+    color: #0d0d1a;
+  }
+  #save-prompt-overlay .btn-newgame-prompt {
+    background: #0f3460;
+    color: #50fa7b;
+    border: 2px solid #50fa7b;
+  }
+  #save-prompt-overlay .btn-newgame-prompt:hover {
+    background: #50fa7b;
+    color: #0d0d1a;
+  }
+
+  /* Scrollbar styling */
+  #combat-log::-webkit-scrollbar { width: 6px; }
+  #combat-log::-webkit-scrollbar-track { background: #0a0a1a; }
+  #combat-log::-webkit-scrollbar-thumb { background: #0f3460; border-radius: 3px; }
+</style>
+</head>
+<body>
+
+<!-- Title header -->
+<div id="header">
+  <h1>⚔ DUNGEON CRAWLER ⚔</h1>
+  <p>WASD eller Piletaster for at bevæge sig | I = brug potion</p>
+</div>
+
+<!-- Save/Load buttons -->
+<div id="button-bar">
+  <button class="btn btn-back" id="back-btn">⬅ Tilbage til menuen</button>
+  <button class="btn btn-save" id="save-btn">💾 Gem Spil</button>
+  <button class="btn btn-load" id="load-btn">📂 Indlæs Spil</button>
+</div>
+
+<!-- Main area -->
+<div id="main">
+  <!-- Sidebar -->
+  <div id="sidebar">
+    <h2>⚔ STATUS</h2>
+
+    <div class="stat-row">
+      <span class="stat-label">HP</span>
+      <span class="stat-value" id="hp-text">100 / 100</span>
+    </div>
+    <div id="hp-bar-container">
+      <div id="hp-bar"></div>
+    </div>
+
+    <div class="stat-row" style="margin-top:12px;">
+      <span class="stat-label">Niveau</span>
+      <span class="stat-value" id="level-text">1</span>
+    </div>
+    <div class="stat-row">
+      <span class="stat-label">Erf</span>
+      <span class="stat-value" id="xp-text">0 / 50</span>
+    </div>
+    <div id="xp-bar-container">
+      <div id="xp-bar"></div>
+    </div>
+
+    <div class="stat-row" style="margin-top:12px;">
+      <span class="stat-label">Angreb</span>
+      <span class="stat-value" id="atk-text">15-25</span>
+    </div>
+
+    <div class="stat-row">
+      <span class="stat-label">Forsvar</span>
+      <span class="stat-value" id="def-text">0</span>
+    </div>
+
+    <div class="stat-row" style="margin-top:14px; border-top: 1px solid #0f3460; padding-top: 8px;">
+      <span class="stat-label">🎒 Inventar</span>
+    </div>
+    <ul id="inventory-list">
+      <li class="empty-inv">Tom</li>
+    </ul>
+  </div>
+
+  <!-- Canvas -->
+  <canvas id="game"></canvas>
+</div>
+
+<!-- Combat log -->
+<div id="combat-log"></div>
+
+<!-- Level-up flash overlay -->
+<div id="levelup-flash">⬆ NIVEAU OP! ⬆</div>
+
+<!-- Game Over overlay -->
+<div id="gameover-overlay">
+  <h2>SPILLET SLUTTER</h2>
+  <p>Du er faldet i kamp...</p>
+  <button id="play-again-btn">Spil Igen</button>
+</div>
+
+<!-- Save prompt overlay (shown on page load if save exists) -->
+<div id="save-prompt-overlay">
+  <h2>Find en gemt spil? 💾</h2>
+  <button class="btn-load-prompt" id="load-save-btn">Indlæs</button>
+  <button class="btn-newgame-prompt" id="new-game-btn">Nyt Spil</button>
+</div>
+
+<script>
+// ============================================================
+// CONFIGURATION
+// ============================================================
+const COLS = 20;
+const ROWS = 20;
+const TILE = 28;
+const canvas = document.getElementById('game');
+const ctx = canvas.getContext('2d');
+
+canvas.width  = COLS * TILE;
+canvas.height = ROWS * TILE;
+
+const SAVE_KEY = 'dungeon-crawler-save';
+
+// Tile type constants
+const WALL = 0;
+const FLOOR = 1;
+
+// ============================================================
+// GAME STATE
+// ============================================================
+let map = [];
+let player = { x: 0, y: 0 };
+let playerOld = { x: 0, y: 0 }; // for smooth animation
+let gameOver = false;
+let damageFlash = 0; // frames of damage flash remaining
+
+const playerStats = {
+  hp: 100,
+  maxHp: 100,
+  level: 1,
+  xp: 0,
+  xpToNext: 50,
+  atkMin: 15,
+  atkMax: 25,
+  defense: 0,
+};
+
+let monsters = [];
+let potions = [];
+let inventory = { potions: 0 };
+let floorTiles = [];
+let combatLog = [];
+
+function xpForLevel(level) {
+  return 50 + (level - 1) * 30;
+}
+
+// ============================================================
+// DOM REFERENCES
+// ============================================================
+const hpText      = document.getElementById('hp-text');
+const hpBar       = document.getElementById('hp-bar');
+const levelText   = document.getElementById('level-text');
+const xpText      = document.getElementById('xp-text');
+const xpBar       = document.getElementById('xp-bar');
+const atkText     = document.getElementById('atk-text');
+const defText     = document.getElementById('def-text');
+const invList     = document.getElementById('inventory-list');
+const combatLogEl = document.getElementById('combat-log');
+const levelupEl   = document.getElementById('levelup-flash');
+const gameoverEl  = document.getElementById('gameover-overlay');
+const playAgainBtn = document.getElementById('play-again-btn');
+const saveBtn     = document.getElementById('save-btn');
+const loadBtn     = document.getElementById('load-btn');
+const savePromptEl = document.getElementById('save-prompt-overlay');
+const loadSaveBtn = document.getElementById('load-save-btn');
+const newGameBtn  = document.getElementById('new-game-btn');
+const backBtn     = document.getElementById('back-btn');
+
+// ============================================================
+// SAVE / LOAD (localStorage)
+// ============================================================
+function serializeState() {
+  return JSON.stringify({
+    map: map,
+    player: player,
+    playerStats: playerStats,
+    monsters: monsters,
+    potions: potions,
+    inventory: inventory,
+    combatLog: combatLog,
+  });
+}
+
+function saveGame() {
+  try {
+    const data = serializeState();
+    localStorage.setItem(SAVE_KEY, data);
+    addLog('💾 Spil gemmet!', 'log-info');
+  } catch (e) {
+    addLog('⚠ Kunne ikke gemme spillet!', 'log-combat');
+  }
+}
+
+function loadGame() {
+  try {
+    const data = localStorage.getItem(SAVE_KEY);
+    if (!data) {
+      addLog('Ingen gemt spil fundet.', 'log-info');
+      return false;
+    }
+    const state = JSON.parse(data);
+
+    map = state.map;
+    player = state.player;
+    playerOld = { ...player };
+    Object.assign(playerStats, state.playerStats);
+    monsters = state.monsters || [];
+    potions = state.potions || [];
+    inventory = state.inventory || { potions: 0 };
+    combatLog = state.combatLog || [];
+
+    gameOver = false;
+    gameoverEl.classList.remove('show');
+    damageFlash = 0;
+
+    updateSidebar();
+    renderLog();
+    draw();
+
+    addLog('📂 Spil indlæst!', 'log-info');
+    return true;
+  } catch (e) {
+    addLog('⚠ Kunne ikke indlæse spillet!', 'log-combat');
+    return false;
+  }
+}
+
+function clearSave() {
+  localStorage.removeItem(SAVE_KEY);
+}
+
+function hasSave() {
+  return localStorage.getItem(SAVE_KEY) !== null;
+}
+
+// ============================================================
+// GAME OVER
+// ============================================================
+function triggerGameOver() {
+  gameOver = true;
+  addLog('💀 Du er faldet i kamp...', 'log-levelup');
+  gameoverEl.classList.add('show');
+  // Clear the save on game over so new game starts fresh
+  clearSave();
+}
+
+// ============================================================
+// BACK TO HUB
+// ============================================================
+function goBackToHub() {
+  // Try postMessage first (iframe approach)
+  if (window.parent !== window) {
+    try {
+      window.parent.postMessage({ type: 'back' }, '*');
+      return;
+    } catch(e) { /* fallback */ }
+  }
+  // Fallback: if not in iframe, do nothing
+}
+
+// ============================================================
+// COMBAT LOG
+// ============================================================
+function addLog(msg, cls) {
+  combatLog.push({ msg, cls: cls || 'log-info' });
+  if (combatLog.length > 100) combatLog.shift();
+  renderLog();
+}
+
+function renderLog() {
+  combatLogEl.innerHTML = '';
+  for (const entry of combatLog) {
+    const div = document.createElement('div');
+    div.className = 'log-entry ' + entry.cls;
+    div.textContent = '> ' + entry.msg;
+    combatLogEl.appendChild(div);
+  }
+  combatLogEl.scrollTop = combatLogEl.scrollHeight;
+}
+
+// ============================================================
+// SIDEBAR UPDATE
+// ============================================================
+function updateSidebar() {
+  const hpPct = Math.max(0, (playerStats.hp / playerStats.maxHp) * 100);
+  hpText.textContent = playerStats.hp + ' / ' + playerStats.maxHp;
+  hpBar.style.width = hpPct + '%';
+
+  if (hpPct <= 25) {
+    hpBar.style.background = 'linear-gradient(90deg, #ff0000, #e94560)';
+  } else if (hpPct <= 50) {
+    hpBar.style.background = 'linear-gradient(90deg, #ff8c00, #ffaa00)';
+  } else {
+    hpBar.style.background = 'linear-gradient(90deg, #e94560, #ff6b6b)';
+  }
+
+  levelText.textContent = playerStats.level;
+
+  const xpNeeded = xpForLevel(playerStats.level);
+  xpText.textContent = playerStats.xp + ' / ' + xpNeeded;
+  const xpPct = Math.min(100, (playerStats.xp / xpNeeded) * 100);
+  xpBar.style.width = xpPct + '%';
+
+  atkText.textContent = playerStats.atkMin + '-' + playerStats.atkMax;
+  defText.textContent = playerStats.defense;
+
+  renderInventory();
+}
+
+function renderInventory() {
+  invList.innerHTML = '';
+  if (inventory.potions <= 0) {
+    invList.innerHTML = '<li class="empty-inv">Tom</li>';
+    return;
+  }
+  const li = document.createElement('li');
+  li.textContent = '🧪 Potion x' + inventory.potions;
+  invList.appendChild(li);
+}
+
+// ============================================================
+// LEVEL UP
+// ============================================================
+function checkLevelUp() {
+  const xpNeeded = xpForLevel(playerStats.level);
+  if (playerStats.xp >= xpNeeded) {
+    playerStats.level++;
+    playerStats.xp -= xpForLevel(playerStats.level - 1);
+    playerStats.xpToNext = xpForLevel(playerStats.level);
+
+    playerStats.maxHp += 20;
+    playerStats.hp = Math.min(playerStats.hp + 20, playerStats.maxHp);
+    playerStats.atkMin += 3;
+    playerStats.atkMax += 5;
+    playerStats.defense += 1;
+
+    addLog('⬆ Du steg til niveau ' + playerStats.level + '!', 'log-levelup');
+    addLog('HP +' + 20 + ', Angreb +' + 3 + '-' + 5 + ', Forsvar +' + 1, 'log-level');
+
+    levelupEl.style.display = 'block';
+    levelupEl.style.animation = 'none';
+    void levelupEl.offsetWidth;
+    levelupEl.style.animation = 'flash-pulse 1.5s ease-in-out forwards';
+    setTimeout(() => { levelupEl.style.display = 'none'; }, 1600);
+
+    updateSidebar();
+  }
+}
+
+// ============================================================
+// DUNGEON MAP
+// ============================================================
+function createEmptyMap() {
+  const m = [];
+  for (let r = 0; r < ROWS; r++) {
+    m[r] = [];
+    for (let c = 0; c < COLS; c++) {
+      m[r][c] = WALL;
+    }
+  }
+  return m;
+}
+
+function generateDungeon() {
+  gameOver = false;
+  gameoverEl.classList.remove('show');
+  damageFlash = 0;
+
+  map = createEmptyMap();
+  floorTiles = [];
+  monsters = [];
+  potions = [];
+
+  const MIN_ROOM = 3;
+  const MAX_ROOM = 6;
+  const NUM_ROOMS = 8;
+  const rooms = [];
+
+  for (let attempt = 0; attempt < 200 && rooms.length < NUM_ROOMS; attempt++) {
+    const w = MIN_ROOM + Math.floor(Math.random() * (MAX_ROOM - MIN_ROOM + 1));
+    const h = MIN_ROOM + Math.floor(Math.random() * (MAX_ROOM - MIN_ROOM + 1));
+    const x = 1 + Math.floor(Math.random() * (COLS - w - 2));
+    const y = 1 + Math.floor(Math.random() * (ROWS - h - 2));
+
+    let overlaps = false;
+    for (const r of rooms) {
+      if (x - 1 < r.x + r.w && x + w > r.x - 1 &&
+          y - 1 < r.y + r.h && y + h > r.y - 1) {
+        overlaps = true;
+        break;
+      }
+    }
+    if (overlaps) continue;
+
+    for (let ry = y; ry < y + h; ry++) {
+      for (let rx = x; rx < x + w; rx++) {
+        map[ry][rx] = FLOOR;
+        floorTiles.push({ x: rx, y: ry });
+      }
+    }
+
+    rooms.push({ x, y, w, h });
+
+    if (rooms.length > 1) {
+      const prev = rooms[rooms.length - 2];
+      const cx1 = Math.floor(prev.x + prev.w / 2);
+      const cy1 = Math.floor(prev.y + prev.h / 2);
+      const cx2 = Math.floor(x + w / 2);
+      const cy2 = Math.floor(y + h / 2);
+      carveCorridor(cx1, cy1, cx2, cy2);
+    }
+  }
+
+  player = randomFloorTile();
+  playerOld = { ...player };
+
+  const used = new Set(floorTiles.map(t => t.x + ',' + t.y));
+  used.add(player.x + ',' + player.y);
+  const monsterCandidates = floorTiles.filter(t => !used.has(t.x + ',' + t.y));
+  shuffle(monsterCandidates);
+  for (let i = 0; i < Math.min(3, monsterCandidates.length); i++) {
+    const hp = 30 + Math.floor(Math.random() * 21);
+    monsters.push({ x: monsterCandidates[i].x, y: monsterCandidates[i].y, hp: hp, maxHp: hp });
+    used.add(monsterCandidates[i].x + ',' + monsterCandidates[i].y);
+  }
+
+  const numPotions = 3 + Math.floor(Math.random() * 3);
+  const potionCandidates = floorTiles.filter(t => !used.has(t.x + ',' + t.y));
+  shuffle(potionCandidates);
+  for (let i = 0; i < Math.min(numPotions, potionCandidates.length); i++) {
+    potions.push({ x: potionCandidates[i].x, y: potionCandidates[i].y });
+  }
+
+  playerStats.hp = playerStats.maxHp = 100;
+  playerStats.level = 1;
+  playerStats.xp = 0;
+  playerStats.atkMin = 15;
+  playerStats.atkMax = 25;
+  playerStats.defense = 0;
+  inventory = { potions: 0 };
+  combatLog = [];
+
+  addLog('Du tråder ind i skumringen...', 'log-info');
+  updateSidebar();
+}
+
+function carveCorridor(x1, y1, x2, y2) {
+  const hx = Math.min(x1, x2);
+  const hMax = Math.max(x1, x2);
+  for (let x = hx; x <= hMax; x++) {
+    if (isInside(x, y1) && map[y1][x] === WALL) {
+      map[y1][x] = FLOOR;
+      floorTiles.push({ x, y: y1 });
+    }
+  }
+  const vy = Math.min(y1, y2);
+  const vMax = Math.max(y1, y2);
+  for (let y = vy; y <= vMax; y++) {
+    if (isInside(x2, y) && map[y][x2] === WALL) {
+      map[y][x2] = FLOOR;
+      floorTiles.push({ x: x2, y });
+    }
+  }
+}
+
+function isInside(x, y) {
+  return x >= 0 && x < COLS && y >= 0 && y < ROWS;
+}
+
+function randomFloorTile() {
+  const t = floorTiles[Math.floor(Math.random() * floorTiles.length)];
+  return { x: t.x, y: t.y };
+}
+
+function shuffle(arr) {
+  for (let i = arr.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [arr[i], arr[j]] = [arr[j], arr[i]];
+  }
+}
+
+// ============================================================
+// MONSTER CHASE AI
+// ============================================================
+function moveMonsters() {
+  if (gameOver) return;
+
+  const occupied = new Set();
+  for (const m of monsters) {
+    occupied.add(m.x + ',' + m.y);
+  }
+  occupied.add(player.x + ',' + player.y);
+
+  const planned = new Set();
+  const moves = [];
+
+  for (let i = 0; i < monsters.length; i++) {
+    const m = monsters[i];
+    if (m.x === player.x && m.y === player.y) continue;
+
+    const dirs = [
+      { dx: 0, dy: -1 },
+      { dx: 0, dy: 1 },
+      { dx: -1, dy: 0 },
+      { dx: 1, dy: 0 },
+    ];
+
+    let bestDir = null;
+    let bestDist = Infinity;
+
+    for (const dir of dirs) {
+      const nx = m.x + dir.dx;
+      const ny = m.y + dir.dy;
+      if (!isInside(nx, ny)) continue;
+      if (map[ny][nx] === WALL) continue;
+      const key = nx + ',' + ny;
+      if (occupied.has(key)) continue;
+
+      const dist = Math.abs(nx - player.x) + Math.abs(ny - player.y);
+      if (dist < bestDist) {
+        bestDist = dist;
+        bestDir = dir;
+      }
+    }
+
+    moves.push({ idx: i, dir: bestDir, dist: bestDist });
+  }
+
+  shuffle(moves);
+  for (const move of moves) {
+    if (move.dir === null) continue;
+    const m = monsters[move.idx];
+    const nx = m.x + move.dir.dx;
+    const ny = m.y + move.dir.dy;
+    const key = nx + ',' + ny;
+
+    if (planned.has(key)) continue;
+    if (occupied.has(key)) continue;
+
+    m.x = nx;
+    m.y = ny;
+    planned.add(key);
+  }
+
+  for (const m of monsters) {
+    if (m.x === player.x && m.y === player.y) {
+      const damage = 5 + Math.floor(Math.random() * 11);
+      const actualDmg = Math.max(0, damage - playerStats.defense);
+      playerStats.hp -= actualDmg;
+      damageFlash = 10; // trigger visual flash
+      if (actualDmg > 0) {
+        addLog('Monster angreb dig for ' + actualDmg + ' skade!', 'log-combat');
+      } else {
+        addLog('Monster angreb dig, men din forsvar blokerede alt!', 'log-combat');
+      }
+
+      if (playerStats.hp <= 0) {
+        playerStats.hp = 0;
+        updateSidebar();
+        triggerGameOver();
+        draw();
+        return;
+      }
+    }
+  }
+
+  updateSidebar();
+}
+
+// ============================================================
+// COMBAT
+// ============================================================
+function doCombat(monsterIndex) {
+  const monster = monsters[monsterIndex];
+
+  const damage = playerStats.atkMin + Math.floor(Math.random() * (playerStats.atkMax - playerStats.atkMin + 1));
+  monster.hp -= damage;
+
+  addLog('Du angreb monsteret for ' + damage + ' skade.', 'log-combat');
+
+  if (monster.hp <= 0) {
+    const xpGain = 25 + Math.floor(Math.random() * 11);
+    monsters.splice(monsterIndex, 1);
+    playerStats.xp += xpGain;
+    addLog('Monsteret er besejret! +' + xpGain + ' Erf', 'log-combat');
+
+    if (Math.random() < 0.30) {
+      inventory.potions++;
+      addLog('Monsteret droppede en healing potion! 🧪', 'log-heal');
+    }
+
+    checkLevelUp();
+    player.x = monster.x;
+    player.y = monster.y;
+  } else {
+    const monsterDmg = Math.max(0, (5 + Math.floor(Math.random() * 8)) - playerStats.defense);
+    playerStats.hp -= monsterDmg;
+    damageFlash = 6;
+    if (monsterDmg > 0) {
+      addLog('Monsteret angreb dig for ' + monsterDmg + ' skade!', 'log-combat');
+    } else {
+      addLog('Monsteret angreb dig, men din forsvar blokerede alt!', 'log-combat');
+    }
+
+    if (playerStats.hp <= 0) {
+      playerStats.hp = 0;
+      addLog('💀 Du er faldet i kamp...', 'log-levelup');
+      updateSidebar();
+      triggerGameOver();
+      draw();
+      return;
+    }
+  }
+
+  updateSidebar();
+}
+
+// ============================================================
+// POTION USAGE
+// ============================================================
+function usePotion() {
+  if (gameOver) return;
+
+  if (inventory.potions <= 0) {
+    addLog('Ingen potions tilgængelige', 'log-info');
+    return;
+  }
+
+  inventory.potions--;
+  const healAmount = 25;
+  const oldHp = playerStats.hp;
+  playerStats.hp = Math.min(playerStats.hp + healAmount, playerStats.maxHp);
+  const actualHeal = playerStats.hp - oldHp;
+
+  addLog('Du brugte en potion og helbredte ' + actualHeal + ' HP', 'log-heal');
+  updateSidebar();
+}
+
+// ============================================================
+// RENDERING — Visual tiles with CSS/SVG-style rendering
+// ============================================================
+
+// Pre-render tile images to offscreen canvases for performance
+const wallCanvas = document.createElement('canvas');
+wallCanvas.width = TILE;
+wallCanvas.height = TILE;
+const wallCtx = wallCanvas.getContext('2d');
+
+const floorCanvas = document.createElement('canvas');
+floorCanvas.width = TILE;
+floorCanvas.height = TILE;
+const floorCtx = floorCanvas.getContext('2d');
+
+const playerCanvas = document.createElement('canvas');
+playerCanvas.width = TILE;
+playerCanvas.height = TILE;
+const playerCtx = playerCanvas.getContext('2d');
+
+const monsterCanvas = document.createElement('canvas');
+monsterCanvas.width = TILE;
+monsterCanvas.height = TILE;
+const monsterCtx = monsterCanvas.getContext('2d');
+
+const potionCanvas = document.createElement('canvas');
+potionCanvas.width = TILE;
+potionCanvas.height = TILE;
+const potionCtx = potionCanvas.getContext('2d');
+
+// ---- Pre-render WALL tile (brick pattern) ----
+(function drawWallTile() {
+  // Base
+  wallCtx.fillStyle = '#1e2a4a';
+  wallCtx.fillRect(0, 0, TILE, TILE);
+
+  // Brick lines
+  wallCtx.strokeStyle = '#2a3a6a';
+  wallCtx.lineWidth = 1;
+
+  // Horizontal lines
+  wallCtx.beginPath();
+  wallCtx.moveTo(0, TILE / 3);
+  wallCtx.lineTo(TILE, TILE / 3);
+  wallCtx.moveTo(0, (TILE * 2) / 3);
+  wallCtx.lineTo(TILE, (TILE * 2) / 3);
+  wallCtx.stroke();
+
+  // Vertical lines (staggered)
+  wallCtx.beginPath();
+  wallCtx.moveTo(TILE / 4, 0);
+  wallCtx.lineTo(TILE / 4, TILE / 3);
+  wallCtx.moveTo(TILE * 3 / 4, TILE / 3);
+  wallCtx.lineTo(TILE * 3 / 4, (TILE * 2) / 3);
+  wallCtx.moveTo(TILE / 4, (TILE * 2) / 3);
+  wallCtx.lineTo(TILE / 4, TILE);
+  wallCtx.moveTo(TILE * 3 / 4, (TILE * 2) / 3);
+  wallCtx.lineTo(TILE * 3 / 4, TILE);
+  wallCtx.stroke();
+
+  // Subtle highlight
+  wallCtx.fillStyle = 'rgba(255,255,255,0.03)';
+  wallCtx.fillRect(0, 0, TILE, 2);
+  wallCtx.fillRect(0, 0, 2, TILE);
+})();
+
+// ---- Pre-render FLOOR tile ----
+(function drawFloorTile() {
+  floorCtx.fillStyle = '#151525';
+  floorCtx.fillRect(0, 0, TILE, TILE);
+
+  // Subtle grid lines
+  floorCtx.strokeStyle = '#1a1a35';
+  floorCtx.lineWidth = 0.5;
+  floorCtx.strokeRect(0, 0, TILE, TILE);
+
+  // Tiny random dots for texture
+  floorCtx.fillStyle = 'rgba(100,100,140,0.08)';
+  for (let i = 0; i < 4; i++) {
+    const dx = Math.random() * TILE;
+    const dy = Math.random() * TILE;
+    floorCtx.fillRect(dx, dy, 1, 1);
+  }
+})();
+
+// ---- Pre-render PLAYER tile (glowing circle) ----
+(function drawPlayerTile() {
+  playerCtx.clearRect(0, 0, TILE, TILE);
+
+  // Outer glow
+  const grad = playerCtx.createRadialGradient(TILE/2, TILE/2, 2, TILE/2, TILE/2, TILE/2);
+  grad.addColorStop(0, 'rgba(0,255,136,0.3)');
+  grad.addColorStop(1, 'rgba(0,255,136,0)');
+  playerCtx.fillStyle = grad;
+  playerCtx.fillRect(0, 0, TILE, TILE);
+
+  // Main circle
+  playerCtx.beginPath();
+  playerCtx.arc(TILE/2, TILE/2, TILE/2 - 3, 0, Math.PI * 2);
+  playerCtx.fillStyle = '#00ff88';
+  playerCtx.fill();
+
+  // Inner highlight
+  playerCtx.beginPath();
+  playerCtx.arc(TILE/2, TILE/2 - 2, TILE/4 - 1, 0, Math.PI * 2);
+  playerCtx.fillStyle = 'rgba(255,255,255,0.3)';
+  playerCtx.fill();
+
+  // Dark outline
+  playerCtx.beginPath();
+  playerCtx.arc(TILE/2, TILE/2, TILE/2 - 3, 0, Math.PI * 2);
+  playerCtx.strokeStyle = '#00cc6a';
+  playerCtx.lineWidth = 1;
+  playerCtx.stroke();
+})();
+
+// ---- Pre-render MONSTER tile (red diamond shape) ----
+(function drawMonsterTile() {
+  monsterCtx.clearRect(0, 0, TILE, TILE);
+
+  // Outer glow
+  const grad = monsterCtx.createRadialGradient(TILE/2, TILE/2, 2, TILE/2, TILE/2, TILE/2);
+  grad.addColorStop(0, 'rgba(255,68,68,0.3)');
+  grad.addColorStop(1, 'rgba(255,68,68,0)');
+  monsterCtx.fillStyle = grad;
+  monsterCtx.fillRect(0, 0, TILE, TILE);
+
+  // Diamond shape
+  monsterCtx.beginPath();
+  monsterCtx.moveTo(TILE/2, 3);
+  monsterCtx.lineTo(TILE - 3, TILE/2);
+  monsterCtx.lineTo(TILE/2, TILE - 3);
+  monsterCtx.lineTo(3, TILE/2);
+  monsterCtx.closePath();
+  monsterCtx.fillStyle = '#ff4444';
+  monsterCtx.fill();
+
+  // Inner dark diamond
+  monsterCtx.beginPath();
+  monsterCtx.moveTo(TILE/2, 8);
+  monsterCtx.lineTo(TILE - 8, TILE/2);
+  monsterCtx.lineTo(TILE/2, TILE - 8);
+  monsterCtx.lineTo(8, TILE/2);
+  monsterCtx.closePath();
+  monsterCtx.fillStyle = '#cc2222';
+  monsterCtx.fill();
+
+  // Eyes (two small dots)
+  monsterCtx.fillStyle = '#ffff00';
+  monsterCtx.fillRect(TILE/2 - 4, TILE/2 - 3, 2, 2);
+  monsterCtx.fillRect(TILE/2 + 2, TILE/2 - 3, 2, 2);
+})();
+
+// ---- Pre-render POTION tile (bottle shape) ----
+(function drawPotionTile() {
+  potionCtx.clearRect(0, 0, TILE, TILE);
+
+  // Glow
+  const grad = potionCtx.createRadialGradient(TILE/2, TILE/2, 2, TILE/2, TILE/2, TILE/2);
+  grad.addColorStop(0, 'rgba(80,250,123,0.3)');
+  grad.addColorStop(1, 'rgba(80,250,123,0)');
+  potionCtx.fillStyle = grad;
+  potionCtx.fillRect(0, 0, TILE, TILE);
+
+  // Bottle neck
+  potionCtx.fillStyle = '#40d060';
+  potionCtx.fillRect(TILE/2 - 2, 4, 4, 6);
+
+  // Bottle body
+  potionCtx.beginPath();
+  potionCtx.moveTo(TILE/2 - 5, 10);
+  potionCtx.lineTo(TILE/2 + 5, 10);
+  potionCtx.lineTo(TILE/2 + 6, TILE - 5);
+  potionCtx.quadraticCurveTo(TILE/2 + 6, TILE - 2, TILE/2, TILE - 2);
+  potionCtx.quadraticCurveTo(TILE/2 - 6, TILE - 2, TILE/2 - 6, TILE - 5);
+  potionCtx.closePath();
+  potionCtx.fillStyle = '#50fa7b';
+  potionCtx.fill();
+
+  // Highlight
+  potionCtx.beginPath();
+  potionCtx.moveTo(TILE/2 - 2, 12);
+  potionCtx.lineTo(TILE/2 - 1, 12);
+  potionCtx.lineTo(TILE/2 - 1, TILE - 7);
+  potionCtx.lineTo(TILE/2 - 2, TILE - 7);
+  potionCtx.closePath();
+  potionCtx.fillStyle = 'rgba(255,255,255,0.3)';
+  potionCtx.fill();
+})();
+
+// ---- HP bar helper (drawn on canvas) ----
+function drawMiniHpBar(ctx, monster) {
+  const hpPct = monster.hp / monster.maxHp;
+  const barW = TILE - 6;
+  const barH = 3;
+  const barX = 3;
+  const barY = TILE - 4;
+
+  ctx.fillStyle = '#0a0a1a';
+  ctx.fillRect(barX, barY, barW, barH);
+
+  if (hpPct <= 0.3) {
+    ctx.fillStyle = '#ff0000';
+  } else if (hpPct <= 0.6) {
+    ctx.fillStyle = '#ffaa00';
+  } else {
+    ctx.fillStyle = '#50fa7b';
+  }
+  ctx.fillRect(barX, barY, barW * hpPct, barH);
+}
+
+// ---- Smooth animation helpers ----
+function lerp(a, b, t) {
+  return a + (b - a) * t;
+}
+
+let animProgress = 1; // 0 = just moved, 1 = arrived
+let animX = 0, animY = 0; // destination
+let oldAnimX = 0, oldAnimY = 0; // start
+
+function startAnimation(newX, newY) {
+  oldAnimX = player.x;
+  oldAnimY = player.y;
+  animX = newX;
+  animY = newY;
+  animProgress = 0;
+}
+
+function getAnimX() {
+  return lerp(oldAnimX, animX, easeInOut(animProgress));
+}
+
+function getAnimY() {
+  return lerp(oldAnimY, animY, easeInOut(animProgress));
+}
+
+function easeInOut(t) {
+  return t < 0.5 ? 2 * t * t : -1 + (4 - 2 * t) * t;
+}
+
+// ============================================================
+// DRAW (main render loop frame)
+// ============================================================
+function drawFrame() {
+  // Clear
+  ctx.fillStyle = '#0d0d1a';
+  ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+  // Draw all tiles
+  for (let r = 0; r < ROWS; r++) {
+    for (let c = 0; c < COLS; c++) {
+      const x = c * TILE;
+      const y = r * TILE;
+
+      if (map[r][c] === FLOOR) {
+        ctx.drawImage(floorCanvas, x, y);
+      } else {
+        ctx.drawImage(wallCanvas, x, y);
+      }
+    }
+  }
+
+  // Draw potions
+  for (const p of potions) {
+    ctx.drawImage(potionCanvas, p.x * TILE, p.y * TILE);
+  }
+
+  // Draw monsters with HP bars
+  for (const m of monsters) {
+    ctx.drawImage(monsterCanvas, m.x * TILE, m.y * TILE);
+    drawMiniHpBar(ctx, m);
+  }
+
+  // Draw player at animated position
+  const px = getAnimX() * TILE;
+  const py = getAnimY() * TILE;
+  ctx.drawImage(playerCanvas, px, py);
+
+  // Damage flash overlay
+  if (damageFlash > 0) {
+    const alpha = damageFlash / 10 * 0.25;
+    ctx.fillStyle = 'rgba(255, 0, 0, ' + alpha + ')';
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
+    damageFlash--;
+  }
+}
+
+// Full draw (used for game over, load, etc.)
+function draw() {
+  animProgress = 1;
+  drawFrame();
+}
+
+// ============================================================
+// INPUT — WASD + Arrow Keys + I for potion + S for Save + L for Load
+// ============================================================
+const MOVES = {
+  ArrowUp:    { dx: 0, dy: -1 },
+  ArrowDown:  { dx: 0, dy:  1 },
+  ArrowLeft:  { dx: -1, dy: 0 },
+  ArrowRight: { dx: 1, dy: 0 },
+  w: { dx: 0, dy: -1 },
+  a: { dx: -1, dy: 0 },
+  s: { dx: 0, dy:  1 },
+  d: { dx: 1, dy: 0 },
+  W: { dx: 0, dy: -1 },
+  A: { dx: -1, dy: 0 },
+  S: { dx: 0, dy:  1 },
+  D: { dx: 1, dy: 0 },
+};
+
+document.addEventListener('keydown', (e) => {
+  if (gameOver) return;
+
+  // 'I' key to use a potion
+  if (e.key === 'i' || e.key === 'I') {
+    usePotion();
+    return;
+  }
+
+  // 'K' or 'Ctrl+S' to save
+  if (e.key === 'k' || e.key === 'K') {
+    saveGame();
+    return;
+  }
+
+  // 'L' key to load
+  if (e.key === 'l' || e.key === 'L') {
+    loadGame();
+    return;
+  }
+
+  const move = MOVES[e.key];
+  if (!move) return;
+
+  const nx = player.x + move.dx;
+  const ny = player.y + move.dy;
+
+  if (!isInside(nx, ny) || map[ny][nx] === WALL) return;
+
+  // Check monster encounter
+  const monsterIdx = monsters.findIndex(m => m.x === nx && m.y === ny);
+  if (monsterIdx !== -1) {
+    doCombat(monsterIdx);
+    draw();
+    return;
+  }
+
+  // Start smooth animation
+  startAnimation(nx, ny);
+
+  player.x = nx;
+  player.y = ny;
+
+  // Check potion pickup
+  const potionIdx = potions.findIndex(p => p.x === nx && p.y === ny);
+  if (potionIdx !== -1) {
+    potions.splice(potionIdx, 1);
+    inventory.potions++;
+    addLog('Du fandt en healing potion! 🧪', 'log-heal');
+  }
+
+  // Monster AI
+  moveMonsters();
+
+  // Start animation frame loop
+  requestAnimationFrame(animLoop);
+});
+
+function animLoop() {
+  animProgress += 0.12; // speed of movement animation
+  if (animProgress >= 1) {
+    animProgress = 1;
+    drawFrame();
+    return;
+  }
+  drawFrame();
+  requestAnimationFrame(animLoop);
+}
+
+// ============================================================
+// BUTTON EVENT LISTENERS
+// ============================================================
+backBtn.addEventListener('click', goBackToHub);
+saveBtn.addEventListener('click', saveGame);
+loadBtn.addEventListener('click', loadGame);
+
+playAgainBtn.addEventListener('click', () => {
+  generateDungeon();
+  draw();
+});
+
+loadSaveBtn.addEventListener('click', () => {
+  savePromptEl.classList.remove('show');
+  loadGame();
+});
+
+newGameBtn.addEventListener('click', () => {
+  savePromptEl.classList.remove('show');
+  clearSave();
+  generateDungeon();
+  draw();
+});
+
+// ============================================================
+// INIT — check for save on page load
+// ============================================================
+(function init() {
+  if (hasSave()) {
+    // Show the save prompt overlay
+    savePromptEl.classList.add('show');
+  } else {
+    // Start a new game immediately
+    generateDungeon();
+    draw();
+  }
+})();
+</script>
+</body>
+</html>

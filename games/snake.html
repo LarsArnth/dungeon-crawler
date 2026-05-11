@@ -1,0 +1,546 @@
+<!DOCTYPE html>
+<html lang="da">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Snake</title>
+<style>
+  /* ---------- Reset & base ---------- */
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body {
+    background: #0d0d1a;
+    color: #eee;
+    font-family: 'Courier New', monospace;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    min-height: 100vh;
+    padding: 16px;
+    overflow-x: hidden;
+  }
+
+  /* ---------- Title header ---------- */
+  #header {
+    text-align: center;
+    margin-bottom: 10px;
+  }
+  #header h1 {
+    font-size: 1.6rem;
+    letter-spacing: 4px;
+    color: #50fa7b;
+    text-shadow: 0 0 12px rgba(80,250,123,0.5), 0 0 24px rgba(80,250,123,0.2);
+    margin-bottom: 2px;
+  }
+  #header p {
+    font-size: 0.7rem;
+    color: #555;
+    letter-spacing: 1px;
+  }
+
+  /* ---------- Score bar ---------- */
+  #score-bar {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    width: 560px;
+    max-width: 100%;
+    margin-bottom: 8px;
+    font-size: 0.9rem;
+  }
+  #score-bar span {
+    letter-spacing: 1px;
+  }
+  #score-current { color: #50fa7b; }
+  #score-best    { color: #ffb86c; }
+
+  /* ---------- Game container ---------- */
+  #game-container {
+    position: relative;
+    border: 2px solid #e94560;
+    border-radius: 6px;
+    box-shadow: 0 0 20px rgba(233,69,96,0.15), inset 0 0 20px rgba(0,0,0,0.3);
+    overflow: hidden;
+  }
+  canvas {
+    display: block;
+    background: #0d0d1a;
+  }
+
+  /* ---------- Overlay (game over / start) ---------- */
+  #overlay {
+    position: absolute;
+    inset: 0;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    background: rgba(13,13,26,0.88);
+    z-index: 10;
+    transition: opacity 0.3s;
+  }
+  #overlay.hidden { display: none; }
+  #overlay h2 {
+    font-size: 1.6rem;
+    letter-spacing: 3px;
+    color: #e94560;
+    text-shadow: 0 0 16px rgba(233,69,96,0.6);
+    margin-bottom: 8px;
+  }
+  #overlay .final-score {
+    font-size: 1rem;
+    color: #50fa7b;
+    margin-bottom: 4px;
+  }
+  #overlay .new-record {
+    font-size: 0.8rem;
+    color: #ffb86c;
+    margin-bottom: 16px;
+    text-shadow: 0 0 8px rgba(255,184,108,0.5);
+  }
+  #overlay .prompt {
+    font-size: 0.75rem;
+    color: #666;
+    margin-bottom: 16px;
+  }
+  .btn-game {
+    padding: 10px 32px;
+    font-size: 0.9rem;
+    font-family: 'Courier New', monospace;
+    font-weight: bold;
+    letter-spacing: 2px;
+    border: 2px solid #50fa7b;
+    border-radius: 6px;
+    background: transparent;
+    color: #50fa7b;
+    cursor: pointer;
+    transition: all 0.2s;
+    margin-bottom: 12px;
+  }
+  .btn-game:hover {
+    background: #50fa7b;
+    color: #0d0d1a;
+    box-shadow: 0 0 20px rgba(80,250,123,0.5);
+  }
+  .btn-back {
+    padding: 6px 18px;
+    font-size: 0.75rem;
+    font-family: 'Courier New', monospace;
+    font-weight: bold;
+    letter-spacing: 1px;
+    border: 1px solid #444;
+    border-radius: 4px;
+    background: transparent;
+    color: #aaa;
+    cursor: pointer;
+    transition: all 0.2s;
+  }
+  .btn-back:hover {
+    border-color: #e94560;
+    color: #e94560;
+  }
+
+  /* ---------- Controls hint ---------- */
+  #controls-hint {
+    margin-top: 10px;
+    font-size: 0.7rem;
+    color: #444;
+    letter-spacing: 1px;
+    text-align: center;
+  }
+</style>
+</head>
+<body>
+
+<!-- ===================== HEADER ===================== -->
+<div id="header">
+  <h1>&#x1F40D; SNAKE</h1>
+  <p>ET KLASSISK SLANGE-SPIL</p>
+</div>
+
+<!-- ===================== SCORE BAR ===================== -->
+<div id="score-bar">
+  <span id="score-current">Score: 0</span>
+  <span id="score-best">Bedste Score: 0</span>
+</div>
+
+<!-- ===================== GAME CANVAS ===================== -->
+<div id="game-container">
+  <canvas id="game-canvas"></canvas>
+
+  <!-- Start overlay -->
+  <div id="overlay-start">
+    <h2>SNAKE</h2>
+    <p class="prompt">Brug WASD eller piletaster for at styre</p>
+    <button class="btn-game" id="btn-start">START SPIL</button>
+    <button class="btn-back" id="btn-back-start">&#x2190; TILBAGE TIL MENUEN</button>
+  </div>
+
+  <!-- Game Over overlay -->
+  <div id="overlay-gameover" class="hidden">
+    <h2>GAME OVER</h2>
+    <p class="final-score" id="final-score">Score: 0</p>
+    <p class="new-record hidden" id="new-record">&#x1F3C6; NYT REKORD!</p>
+    <button class="btn-game" id="btn-restart">SPIL IGEN</button>
+    <button class="btn-back" id="btn-back-over">&#x2190; TILBAGE TIL MENUEN</button>
+  </div>
+</div>
+
+<!-- ===================== CONTROLS HINT ===================== -->
+<div id="controls-hint">WASD / Piletaster</div>
+
+<script>
+// ============================================================
+// CONSTANTS
+// ============================================================
+const COLS         = 20;
+const ROWS         = 20;
+const TILE         = 28;
+const CANVAS_W     = COLS * TILE;   // 560
+const CANVAS_H     = ROWS * TILE;   // 560
+const TICK_MS      = 150;           // snake speed — configurable
+const COLOR_BG     = '#0d0d1a';
+const COLOR_SNAKE  = '#50fa7b';
+const COLOR_HEAD   = '#69ff9e';     // lighter green for head
+const COLOR_FOOD   = '#e94560';
+const COLOR_GRID   = '#111128';
+
+// ============================================================
+// DOM REFERENCES
+// ============================================================
+const canvas  = document.getElementById('game-canvas');
+const ctx     = canvas.getContext('2d');
+canvas.width  = CANVAS_W;
+canvas.height = CANVAS_H;
+
+const scoreCurrent = document.getElementById('score-current');
+const scoreBest    = document.getElementById('score-best');
+const overlayStart = document.getElementById('overlay-start');
+const overlayOver  = document.getElementById('overlay-gameover');
+const finalScore   = document.getElementById('final-score');
+const newRecordEl  = document.getElementById('new-record');
+const btnStart     = document.getElementById('btn-start');
+const btnRestart   = document.getElementById('btn-restart');
+const btnBackStart = document.getElementById('btn-back-start');
+const btnBackOver  = document.getElementById('btn-back-over');
+
+// ============================================================
+// STATE
+// ============================================================
+let snake, direction, nextDirection, food;
+let score, highScore, gameInterval, running;
+
+// Load high score from localStorage
+highScore = parseInt(localStorage.getItem('snake-highscore'), 10) || 0;
+updateScoreDisplay();
+
+// ============================================================
+// INIT / RESET
+// ============================================================
+function initGame() {
+  // Snake starts in the middle, 3 segments, moving right
+  const midX = Math.floor(COLS / 2);
+  const midY = Math.floor(ROWS / 2);
+  snake = [
+    { x: midX, y: midY },
+    { x: midX - 1, y: midY },
+    { x: midX - 2, y: midY }
+  ];
+  direction     = 'right';
+  nextDirection = 'right';
+  score = 0;
+  running = true;
+  spawnFood();
+  updateScoreDisplay();
+  render();
+}
+
+// ============================================================
+// FOOD SPAWNING
+// ============================================================
+function spawnFood() {
+  // Pick a random floor tile not occupied by the snake
+  const occupied = new Set(snake.map(s => s.x + ',' + s.y));
+  const freeTiles = [];
+  for (let x = 0; x < COLS; x++) {
+    for (let y = 0; y < ROWS; y++) {
+      if (!occupied.has(x + ',' + y)) {
+        freeTiles.push({ x, y });
+      }
+    }
+  }
+  if (freeTiles.length === 0) {
+    // Snake filled the whole board — player wins!
+    return;
+  }
+  food = freeTiles[Math.floor(Math.random() * freeTiles.length)];
+}
+
+// ============================================================
+// DIRECTION CHANGE (prevent 180° reversals)
+// ============================================================
+const OPPOSITES = {
+  'up': 'down', 'down': 'up',
+  'left': 'right', 'right': 'left'
+};
+
+function setDirection(dir) {
+  if (!running) return;
+  if (dir === OPPOSITES[direction]) return; // can't reverse
+  nextDirection = dir;
+}
+
+// ============================================================
+// INPUT HANDLING
+// ============================================================
+document.addEventListener('keydown', function(e) {
+  const key = e.key;
+  if (key === 'ArrowUp'    || key === 'w' || key === 'W') { e.preventDefault(); setDirection('up'); }
+  if (key === 'ArrowDown'  || key === 's' || key === 'S') { e.preventDefault(); setDirection('down'); }
+  if (key === 'ArrowLeft'  || key === 'a' || key === 'A') { e.preventDefault(); setDirection('left'); }
+  if (key === 'ArrowRight' || key === 'd' || key === 'D') { e.preventDefault(); setDirection('right'); }
+  // Start/restart with Enter or Space
+  if (key === 'Enter' || key === ' ') {
+    e.preventDefault();
+    if (!running) { startGame(); }
+  }
+});
+
+// ============================================================
+// BUTTON HANDLERS
+// ============================================================
+btnStart.addEventListener('click', startGame);
+btnRestart.addEventListener('click', startGame);
+
+btnBackStart.addEventListener('click', goBack);
+btnBackOver.addEventListener('click', goBack);
+
+function startGame() {
+  overlayStart.classList.add('hidden');
+  overlayOver.classList.add('hidden');
+  initGame();
+  clearInterval(gameInterval);
+  gameInterval = setInterval(gameTick, TICK_MS);
+}
+
+function goBack() {
+  clearInterval(gameInterval);
+  running = false;
+  window.parent.postMessage({ type: 'back' }, '*');
+}
+
+// ============================================================
+// GAME TICK (movement, collision, eating)
+// ============================================================
+function gameTick() {
+  // Apply queued direction
+  direction = nextDirection;
+
+  // Calculate new head position
+  const head = { ...snake[0] };
+  switch (direction) {
+    case 'up':    head.y--; break;
+    case 'down':  head.y++; break;
+    case 'left':  head.x--; break;
+    case 'right': head.x++; break;
+  }
+
+  // Wall collision check
+  if (head.x < 0 || head.x >= COLS || head.y < 0 || head.y >= ROWS) {
+    gameOver();
+    return;
+  }
+
+  // Self collision check
+  for (let i = 0; i < snake.length; i++) {
+    if (snake[i].x === head.x && snake[i].y === head.y) {
+      gameOver();
+      return;
+    }
+  }
+
+  // Move: add new head
+  snake.unshift(head);
+
+  // Check food
+  if (head.x === food.x && head.y === food.y) {
+    score++;
+    updateScoreDisplay();
+    spawnFood();
+  } else {
+    // Remove tail to maintain length
+    snake.pop();
+  }
+
+  render();
+}
+
+// ============================================================
+// GAME OVER
+// ============================================================
+function gameOver() {
+  running = false;
+  clearInterval(gameInterval);
+
+  // Check for new high score
+  const isNewRecord = score > highScore;
+  if (isNewRecord) {
+    highScore = score;
+    localStorage.setItem('snake-highscore', highScore);
+    newRecordEl.classList.remove('hidden');
+  } else {
+    newRecordEl.classList.add('hidden');
+  }
+  updateScoreDisplay();
+
+  // Show game over overlay
+  finalScore.textContent = 'Score: ' + score;
+  overlayOver.classList.remove('hidden');
+
+  // One last render to show the dead snake
+  render();
+}
+
+// ============================================================
+// SCORE DISPLAY
+// ============================================================
+function updateScoreDisplay() {
+  scoreCurrent.textContent = 'Score: ' + score;
+  scoreBest.textContent    = 'Bedste Score: ' + highScore;
+}
+
+// ============================================================
+// RENDERING
+// ============================================================
+function render() {
+  // Clear canvas with dark background
+  ctx.fillStyle = COLOR_BG;
+  ctx.fillRect(0, 0, CANVAS_W, CANVAS_H);
+
+  // Draw faint grid
+  ctx.strokeStyle = COLOR_GRID;
+  ctx.lineWidth = 0.5;
+  for (let x = 0; x <= COLS; x++) {
+    ctx.beginPath();
+    ctx.moveTo(x * TILE, 0);
+    ctx.lineTo(x * TILE, CANVAS_H);
+    ctx.stroke();
+  }
+  for (let y = 0; y <= ROWS; y++) {
+    ctx.beginPath();
+    ctx.moveTo(0, y * TILE);
+    ctx.lineTo(CANVAS_W, y * TILE);
+    ctx.stroke();
+  }
+
+  // Draw food with glow effect
+  if (food) {
+    const cx = food.x * TILE + TILE / 2;
+    const cy = food.y * TILE + TILE / 2;
+
+    // Outer glow
+    ctx.shadowColor = COLOR_FOOD;
+    ctx.shadowBlur = 12;
+    ctx.fillStyle = COLOR_FOOD;
+    ctx.beginPath();
+    ctx.arc(cx, cy, TILE / 2 - 3, 0, Math.PI * 2);
+    ctx.fill();
+
+    // Inner bright dot
+    ctx.shadowBlur = 0;
+    ctx.fillStyle = '#ff7a93';
+    ctx.beginPath();
+    ctx.arc(cx, cy, TILE / 5, 0, Math.PI * 2);
+    ctx.fill();
+  }
+
+  // Draw snake segments (rounded, not squares)
+  for (let i = snake.length - 1; i >= 0; i--) {
+    const seg = snake[i];
+    const px = seg.x * TILE;
+    const py = seg.y * TILE;
+    const cx = px + TILE / 2;
+    const cy = py + TILE / 2;
+    const isHead = (i === 0);
+
+    // Glow for head
+    if (isHead) {
+      ctx.shadowColor = COLOR_HEAD;
+      ctx.shadowBlur = 8;
+    } else {
+      ctx.shadowColor = 'transparent';
+      ctx.shadowBlur = 0;
+    }
+
+    ctx.fillStyle = isHead ? COLOR_HEAD : COLOR_SNAKE;
+
+    // Draw rounded rectangle for each segment (slightly smaller than tile for gap effect)
+    const pad = 1.5;
+    const radius = 6;
+    const r = Math.min(radius, (TILE - pad * 2) / 2);
+    roundRect(ctx, px + pad, py + pad, TILE - pad * 2, TILE - pad * 2, r);
+    ctx.fill();
+
+    // Eyes on the head
+    if (isHead) {
+      ctx.shadowBlur = 0;
+      ctx.fillStyle = '#0d0d1a';
+      const eyeR = 2.5;
+      const eyeOff = 6;
+      let e1x, e1y, e2x, e2y;
+
+      switch (direction) {
+        case 'right':
+          e1x = cx + 4; e1y = cy - eyeOff;
+          e2x = cx + 4; e2y = cy + eyeOff;
+          break;
+        case 'left':
+          e1x = cx - 4; e1y = cy - eyeOff;
+          e2x = cx - 4; e2y = cy + eyeOff;
+          break;
+        case 'up':
+          e1x = cx - eyeOff; e1y = cy - 4;
+          e2x = cx + eyeOff; e2y = cy - 4;
+          break;
+        case 'down':
+          e1x = cx - eyeOff; e1y = cy + 4;
+          e2x = cx + eyeOff; e2y = cy + 4;
+          break;
+      }
+      ctx.beginPath();
+      ctx.arc(e1x, e1y, eyeR, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.beginPath();
+      ctx.arc(e2x, e2y, eyeR, 0, Math.PI * 2);
+      ctx.fill();
+    }
+  }
+
+  // Reset shadow
+  ctx.shadowColor = 'transparent';
+  ctx.shadowBlur = 0;
+}
+
+// ============================================================
+// UTILITY: rounded rectangle path
+// ============================================================
+function roundRect(ctx, x, y, w, h, r) {
+  ctx.beginPath();
+  ctx.moveTo(x + r, y);
+  ctx.lineTo(x + w - r, y);
+  ctx.quadraticCurveTo(x + w, y, x + w, y + r);
+  ctx.lineTo(x + w, y + h - r);
+  ctx.quadraticCurveTo(x + w, y + h, x + w - r, y + h);
+  ctx.lineTo(x + r, y + h);
+  ctx.quadraticCurveTo(x, y + h, x, y + h - r);
+  ctx.lineTo(x, y + r);
+  ctx.quadraticCurveTo(x, y, x + r, y);
+  ctx.closePath();
+}
+
+// ============================================================
+// INITIAL RENDER (blank board with grid)
+// ============================================================
+render();
+</script>
+</body>
+</html>

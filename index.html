@@ -1,0 +1,337 @@
+<!DOCTYPE html>
+<html lang="da">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>GAME HUB</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body {
+    background: #0d0d1a;
+    color: #eee;
+    font-family: 'Courier New', monospace;
+    min-height: 100vh;
+    overflow-x: hidden;
+  }
+
+  /* ---------- Main Menu View ---------- */
+  #menu-view {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    padding: 30px 20px 50px;
+    min-height: 100vh;
+  }
+
+  /* ---------- Header ---------- */
+  #hub-header {
+    text-align: center;
+    margin-bottom: 40px;
+    margin-top: 30px;
+  }
+  #hub-header h1 {
+    font-size: 2.4rem;
+    letter-spacing: 6px;
+    color: #e94560;
+    text-shadow: 0 0 16px rgba(233,69,96,0.6), 0 0 32px rgba(233,69,96,0.3);
+    margin-bottom: 8px;
+  }
+  #hub-header p {
+    font-size: 0.85rem;
+    color: #555;
+    letter-spacing: 2px;
+  }
+
+  /* ---------- Game Grid ---------- */
+  #game-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+    gap: 24px;
+    max-width: 960px;
+    width: 100%;
+    padding: 0 10px;
+  }
+
+  /* ---------- Game Card ---------- */
+  .game-card {
+    background: #12122a;
+    border: 1px solid #0f3460;
+    border-radius: 12px;
+    padding: 24px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    text-align: center;
+    transition: transform 0.2s, box-shadow 0.2s, border-color 0.2s;
+    box-shadow: 0 4px 20px rgba(0,0,0,0.4);
+    min-height: 260px;
+  }
+  .game-card:not(.coming-soon):hover {
+    transform: translateY(-4px);
+    box-shadow: 0 8px 30px rgba(233,69,96,0.2);
+    border-color: #e94560;
+  }
+  .game-card .card-icon {
+    font-size: 3rem;
+    margin-bottom: 12px;
+  }
+  .game-card h2 {
+    font-size: 1.3rem;
+    color: #fff;
+    margin-bottom: 8px;
+    letter-spacing: 2px;
+  }
+  .game-card .card-desc {
+    font-size: 0.8rem;
+    color: #888;
+    line-height: 1.5;
+    margin-bottom: 20px;
+    flex-grow: 1;
+  }
+  .game-card .card-status {
+    font-size: 0.75rem;
+    color: #555;
+    margin-bottom: 14px;
+    letter-spacing: 1px;
+  }
+
+  /* ---------- Play Button ---------- */
+  .btn-play {
+    padding: 10px 36px;
+    font-size: 0.95rem;
+    font-family: 'Courier New', monospace;
+    font-weight: bold;
+    letter-spacing: 2px;
+    border: 2px solid #e94560;
+    border-radius: 6px;
+    background: transparent;
+    color: #e94560;
+    cursor: pointer;
+    transition: all 0.2s;
+  }
+  .btn-play:hover {
+    background: #e94560;
+    color: #0d0d1a;
+    box-shadow: 0 0 20px rgba(233,69,96,0.5);
+  }
+
+  /* ---------- Coming Soon ---------- */
+  .coming-soon {
+    opacity: 0.4;
+    filter: grayscale(0.6);
+  }
+  .coming-soon .btn-lock {
+    padding: 10px 28px;
+    font-size: 0.9rem;
+    font-family: 'Courier New', monospace;
+    letter-spacing: 1px;
+    border: 1px solid #333;
+    border-radius: 6px;
+    background: transparent;
+    color: #555;
+    cursor: default;
+  }
+
+  /* ---------- Game View (iframe container) ---------- */
+  #game-view {
+    display: none;
+    flex-direction: column;
+    align-items: center;
+    width: 100%;
+    min-height: 100vh;
+    padding: 0;
+  }
+  #game-view.active {
+    display: flex;
+  }
+  #menu-view.hidden {
+    display: none;
+  }
+
+  #game-back-bar {
+    width: 100%;
+    max-width: 900px;
+    display: flex;
+    align-items: center;
+    padding: 12px 16px;
+    gap: 12px;
+    background: #12122a;
+    border-bottom: 1px solid #0f3460;
+  }
+  #game-back-bar h2 {
+    flex: 1;
+    font-size: 1rem;
+    color: #e94560;
+    letter-spacing: 2px;
+  }
+  .btn-back-menu {
+    padding: 6px 18px;
+    font-size: 0.8rem;
+    font-family: 'Courier New', monospace;
+    font-weight: bold;
+    letter-spacing: 1px;
+    border: 1px solid #444;
+    border-radius: 4px;
+    background: transparent;
+    color: #aaa;
+    cursor: pointer;
+    transition: all 0.2s;
+  }
+  .btn-back-menu:hover {
+    border-color: #e94560;
+    color: #e94560;
+  }
+
+  #iframe-container {
+    flex: 1;
+    width: 100%;
+    display: flex;
+    justify-content: center;
+    padding: 10px;
+  }
+  #game-frame {
+    width: 100%;
+    max-width: 1200px;
+    flex: 1;
+    border: 2px solid #e94560;
+    border-radius: 8px;
+    box-shadow: 0 0 30px rgba(233,69,96,0.15);
+  }
+
+  /* ---------- Footer ---------- */
+  #hub-footer {
+    text-align: center;
+    margin-top: 50px;
+    padding: 20px;
+    color: #333;
+    font-size: 0.7rem;
+    letter-spacing: 1px;
+  }
+
+  /* ---------- Responsive ---------- */
+  @media (max-width: 640px) {
+    #hub-header h1 { font-size: 1.6rem; letter-spacing: 4px; }
+    #game-grid { grid-template-columns: 1fr; }
+    .game-card { min-height: 220px; padding: 18px; }
+  }
+</style>
+</head>
+<body>
+
+<!-- ===================== MAIN MENU ===================== -->
+<div id="menu-view">
+  <div id="hub-header">
+    <h1>&#x2694;&#xFE0F; GAME HUB &#x2694;&#xFE0F;</h1>
+    <p>VÆLG DIT SPIL</p>
+  </div>
+
+  <div id="game-grid">
+
+    <!-- Card 1: Dungeon Crawler -->
+    <div class="game-card" id="card-dungeon">
+      <div class="card-icon">&#x1F3DA;</div>
+      <h2>DUNGEON CRAWLER</h2>
+      <div class="card-desc">
+        Udforsk et proceduralt genereret dungeon. Slå monstre, saml potions, og overlev så længe du kan.
+      </div>
+      <div class="card-status">&#x2705; Klar til at spille</div>
+      <button class="btn-play" id="play-dungeon">START</button>
+    </div>
+
+    <!-- Card 2: Snake (Coming Soon) -->
+    <div class="game-card coming-soon">
+      <div class="card-icon">&#x1F40D;</div>
+      <h2>SNAKE</h2>
+      <div class="card-desc">
+        Det klassiske slange-spil. Spis mad, voksend, undgå væggene.
+      </div>
+      <div class="card-status">&#x1F512; Kommer snart</div>
+      <button class="btn-lock" disabled>&#x1F512; KOMMER SNART</button>
+    </div>
+
+    <!-- Card 3: Rum Invasion (Coming Soon) -->
+    <div class="game-card coming-soon">
+      <div class="card-icon">&#x1F680;</div>
+      <h2>RUM INVASION</h2>
+      <div class="card-desc">
+        Forsvar jorden mod en invasion af rumvæsener. Skyd, undvig, og overlev.
+      </div>
+      <div class="card-status">&#x1F512; Kommer snart</div>
+      <button class="btn-lock" disabled>&#x1F512; KOMMER SNART</button>
+    </div>
+
+  </div>
+
+  <div id="hub-footer">
+    GAME HUB &#x2022; INGEN EKSTRA DEPENDENCIES &#x2022; 100% INLINE
+  </div>
+</div>
+
+<!-- ===================== GAME VIEW ===================== -->
+<div id="game-view">
+  <div id="game-back-bar">
+    <h2 id="game-title">DUNGEON CRAWLER</h2>
+    <button class="btn-back-menu" id="back-to-menu">&#x2190; TILBAGE TIL MENUEN</button>
+  </div>
+  <div id="iframe-container">
+    <iframe id="game-frame" src=""></iframe>
+  </div>
+</div>
+
+<script>
+  // ============================================================
+  // DOM REFERENCES
+  // ============================================================
+  const menuView   = document.getElementById('menu-view');
+  const gameView   = document.getElementById('game-view');
+  const gameFrame  = document.getElementById('game-frame');
+  const backBtn    = document.getElementById('back-to-menu');
+  const gameTitle  = document.getElementById('game-title');
+  const playBtn    = document.getElementById('play-dungeon');
+
+  // ============================================================
+  // GAME DEFINITIONS
+  // ============================================================
+  const GAMES = {
+    'dungeon-crawler': {
+      src: 'games/dungeon-crawler.html',
+      title: 'DUNGEON CRAWLER'
+    }
+  };
+
+  // ============================================================
+  // START GAME
+  // ============================================================
+  playBtn.addEventListener('click', function() {
+    const game = GAMES['dungeon-crawler'];
+    if (!game) return;
+    loadGame(game);
+  });
+
+  function loadGame(game) {
+    gameFrame.src = game.src;
+    gameTitle.textContent = game.title;
+    menuView.classList.add('hidden');
+    gameView.classList.add('active');
+  }
+
+  // ============================================================
+  // BACK TO MENU
+  // ============================================================
+  backBtn.addEventListener('click', function() {
+    gameFrame.src = '';
+    gameView.classList.remove('active');
+    menuView.classList.remove('hidden');
+  });
+
+  // ============================================================
+  // LISTEN FOR POSTMESSAGE 'back' from iframe games
+  // ============================================================
+  window.addEventListener('message', function(e) {
+    if (e.data && e.data.type === 'back') {
+      backBtn.click();
+    }
+  });
+</script>
+</body>
+</html>
