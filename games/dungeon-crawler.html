@@ -403,6 +403,9 @@
   <button id="play-again-btn">Spil Igen</button>
 </div>
 
+<!-- Error display -->
+<div id="error-display" style="display:none; position:fixed; top:10px; left:50%; transform:translateX(-50%); background:rgba(233,69,96,0.95); color:#fff; padding:12px 24px; border-radius:6px; font-family:'Courier New',monospace; font-size:0.9rem; z-index:999; max-width:90%; text-align:center;"></div>
+
 <!-- Save prompt overlay (shown on page load if save exists) -->
 <div id="save-prompt-overlay">
   <h2>Find en gemt spil? 💾</h2>
@@ -729,7 +732,16 @@ function generateDungeon() {
   player = randomFloorTile();
   playerOld = { ...player };
 
-  const used = new Set(floorTiles.map(t => t.x + ',' + t.y));
+  // Deduplicate floorTiles (corridors may overlap rooms in edge cases)
+  const seen = new Set();
+  floorTiles = floorTiles.filter(t => {
+    const key = t.x + ',' + t.y;
+    if (seen.has(key)) return false;
+    seen.add(key);
+    return true;
+  });
+
+  const used = new Set();
   used.add(player.x + ',' + player.y);
   const monsterCandidates = floorTiles.filter(t => !used.has(t.x + ',' + t.y));
   shuffle(monsterCandidates);
@@ -1359,13 +1371,22 @@ newGameBtn.addEventListener('click', () => {
 // INIT — check for save on page load
 // ============================================================
 (function init() {
-  if (hasSave()) {
-    // Show the save prompt overlay
-    savePromptEl.classList.add('show');
-  } else {
-    // Start a new game immediately
-    generateDungeon();
-    draw();
+  try {
+    if (hasSave()) {
+      // Show the save prompt overlay
+      savePromptEl.classList.add('show');
+    } else {
+      // Start a new game immediately
+      generateDungeon();
+      draw();
+    }
+  } catch (e) {
+    console.error('Dungeon Crawler init error:', e);
+    const errEl = document.getElementById('error-display');
+    if (errEl) {
+      errEl.textContent = 'Feil ved oppstart: ' + e.message;
+      errEl.style.display = 'block';
+    }
   }
 })();
 </script>
