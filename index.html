@@ -238,26 +238,26 @@
       <button class="btn-play" id="play-dungeon">START</button>
     </div>
 
-    <!-- Card 2: Snake (Coming Soon) -->
-    <div class="game-card coming-soon">
+    <!-- Card 2: Snake -->
+    <div class="game-card" id="card-snake">
       <div class="card-icon">&#x1F40D;</div>
       <h2>SNAKE</h2>
       <div class="card-desc">
         Det klassiske slange-spil. Spis mad, voksend, undgå væggene.
       </div>
-      <div class="card-status">&#x1F512; Kommer snart</div>
-      <button class="btn-lock" disabled>&#x1F512; KOMMER SNART</button>
+      <div class="card-status">&#x2705; Klar til at spille</div>
+      <button class="btn-play" id="play-snake">START</button>
     </div>
 
-    <!-- Card 3: Rum Invasion (Coming Soon) -->
-    <div class="game-card coming-soon">
+    <!-- Card 3: Rum Invasion -->
+    <div class="game-card" id="card-space">
       <div class="card-icon">&#x1F680;</div>
       <h2>RUM INVASION</h2>
       <div class="card-desc">
         Forsvar jorden mod en invasion af rumvæsener. Skyd, undvig, og overlev.
       </div>
-      <div class="card-status">&#x1F512; Kommer snart</div>
-      <button class="btn-lock" disabled>&#x1F512; KOMMER SNART</button>
+      <div class="card-status">&#x2705; Klar til at spille</div>
+      <button class="btn-play" id="play-space">START</button>
     </div>
 
   </div>
@@ -288,6 +288,8 @@
   const backBtn    = document.getElementById('back-to-menu');
   const gameTitle  = document.getElementById('game-title');
   const playBtn    = document.getElementById('play-dungeon');
+  const playBtnSnake   = document.getElementById('play-snake');
+  const playBtnSpace   = document.getElementById('play-space');
 
   // ============================================================
   // GAME DEFINITIONS
@@ -296,6 +298,14 @@
     'dungeon-crawler': {
       src: 'games/dungeon-crawler.html',
       title: 'DUNGEON CRAWLER'
+    },
+    'snake': {
+      src: 'games/snake.html',
+      title: 'SNAKE'
+    },
+    'space-invaders': {
+      src: 'games/space-invaders.html',
+      title: 'RUM INVASION'
     }
   };
 
@@ -304,6 +314,18 @@
   // ============================================================
   playBtn.addEventListener('click', function() {
     const game = GAMES['dungeon-crawler'];
+    if (!game) return;
+    loadGame(game);
+  });
+
+  playBtnSnake.addEventListener('click', function() {
+    const game = GAMES['snake'];
+    if (!game) return;
+    loadGame(game);
+  });
+
+  playBtnSpace.addEventListener('click', function() {
+    const game = GAMES['space-invaders'];
     if (!game) return;
     loadGame(game);
   });
