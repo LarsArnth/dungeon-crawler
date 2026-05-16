@@ -139,6 +139,63 @@
     color: #e94560;
   }
 
+  /* ---------- Difficulty selector buttons ---------- */
+  .difficulty-row {
+    display: flex;
+    gap: 8px;
+    margin-bottom: 16px;
+    flex-wrap: wrap;
+    justify-content: center;
+  }
+  .btn-difficulty {
+    padding: 8px 20px;
+    font-size: 0.8rem;
+    font-family: 'Courier New', monospace;
+    font-weight: bold;
+    letter-spacing: 1px;
+    border: 2px solid #444;
+    border-radius: 6px;
+    background: transparent;
+    color: #aaa;
+    cursor: pointer;
+    transition: all 0.2s;
+  }
+  .btn-difficulty:hover {
+    border-color: #e94560;
+    color: #e94560;
+  }
+  .btn-difficulty.selected {
+    border-color: #e94560;
+    color: #e94560;
+    box-shadow: 0 0 12px rgba(233,69,96,0.4);
+    background: rgba(233,69,96,0.1);
+  }
+  .btn-difficulty .speed-hint {
+    display: block;
+    font-size: 0.6rem;
+    color: #666;
+    font-weight: normal;
+    margin-top: 2px;
+  }
+  .btn-difficulty.selected .speed-hint {
+    color: #e94560;
+  }
+
+  /* ---------- Speed indicator ---------- */
+  #speed-indicator {
+    font-size: 0.7rem;
+    color: #555;
+    margin-bottom: 8px;
+    min-height: 1em;
+  }
+
+  /* ---------- Cooldown overlay text ---------- */
+  .cooldown-text {
+    font-size: 0.85rem;
+    color: #888;
+    margin-bottom: 12px;
+  }
+
   /* ---------- Controls hint ---------- */
   #controls-hint {
     margin-top: 10px;
@@ -167,9 +224,24 @@
 <div id="game-container">
   <canvas id="game-canvas"></canvas>
 
-  <!-- Start overlay -->
+  <!-- Difficulty / Start overlay -->
   <div id="overlay-start">
     <h2>SNAKE</h2>
+    <p class="prompt" style="margin-bottom:4px;">Vælg sværhedsgrad:</p>
+    <div class="difficulty-row" id="difficulty-row">
+      <button class="btn-difficulty" data-diff="easy" id="diff-easy">
+        Let
+        <span class="speed-hint">200ms</span>
+      </button>
+      <button class="btn-difficulty selected" data-diff="medium" id="diff-medium">
+        Medium
+        <span class="speed-hint">150ms</span>
+      </button>
+      <button class="btn-difficulty" data-diff="hard" id="diff-hard">
+        Svær
+        <span class="speed-hint">100ms</span>
+      </button>
+    </div>
     <p class="prompt">Brug WASD eller piletaster for at styre</p>
     <button class="btn-game" id="btn-start">START SPIL</button>
     <button class="btn-back" id="btn-back-start">&#x2190; TILBAGE TIL MENUEN</button>
@@ -180,6 +252,7 @@
     <h2>GAME OVER</h2>
     <p class="final-score" id="final-score">Score: 0</p>
     <p class="new-record hidden" id="new-record">&#x1F3C6; NYT REKORD!</p>
+    <p class="cooldown-text hidden" id="cooldown-text">Vent venligst...</p>
     <button class="btn-game" id="btn-restart">SPIL IGEN</button>
     <button class="btn-back" id="btn-back-over">&#x2190; TILBAGE TIL MENUEN</button>
   </div>
@@ -197,7 +270,14 @@ const ROWS         = 20;
 const TILE         = 28;
 const CANVAS_W     = COLS * TILE;   // 560
 const CANVAS_H     = ROWS * TILE;   // 560
-const TICK_MS      = 150;           // snake speed — configurable
+const MIN_TICK_MS  = 60;            // fastest possible tick
+const SPEED_DECREASE = 2;           // ms slower per food eaten
+const DIFFICULTY_SPEEDS = {
+  'easy':   200,
+  'medium': 150,
+  'hard':   100
+};
+const RESTART_COOLDOWN_MS = 3000;   // 3 second cooldown after game over
 const COLOR_BG     = '#0d0d1a';
 const COLOR_SNAKE  = '#50fa7b';
 const COLOR_HEAD   = '#69ff9e';     // lighter green for head
@@ -218,25 +298,62 @@ const overlayStart = document.getElementById('overlay-start');
 const overlayOver  = document.getElementById('overlay-gameover');
 const finalScore   = document.getElementById('final-score');
 const newRecordEl  = document.getElementById('new-record');
+const cooldownEl   = document.getElementById('cooldown-text');
 const btnStart     = document.getElementById('btn-start');
 const btnRestart   = document.getElementById('btn-restart');
 const btnBackStart = document.getElementById('btn-back-start');
 const btnBackOver  = document.getElementById('btn-back-over');
+
+// Difficulty buttons
+const diffButtons = document.querySelectorAll('.btn-difficulty');
 
 // ============================================================
 // STATE
 // ============================================================
 let snake, direction, nextDirection, food;
 let score, highScore, gameInterval, running;
+let currentTickMs;      // dynamically adjusted tick speed
+let foodsEaten;         // count of food eaten (for speed progression)
+let restartCooldown;    // timestamp when restart becomes allowed
+
+// ============================================================
+// DIFFICULTY MANAGEMENT
+// ============================================================
+let selectedDifficulty = localStorage.getItem('snake-difficulty') || 'medium';
 
 // Load high score from localStorage
-highScore = parseInt(localStorage.getItem('snake-highscore'), 10) || 0;
-updateScoreDisplay();
+let highScore = parseInt(localStorage.getItem('snake-highscore'), 10) || 0;
+
+function setDifficulty(diff) {
+  selectedDifficulty = diff;
+  localStorage.setItem('snake-difficulty', diff);
+  // Update visual selection
+  diffButtons.forEach(function(btn) {
+    if (btn.dataset.diff === diff) {
+      btn.classList.add('selected');
+    } else {
+      btn.classList.remove('selected');
+    }
+  });
+}
+
+// Initialize difficulty buttons
+setDifficulty(selectedDifficulty);
+
+diffButtons.forEach(function(btn) {
+  btn.addEventListener('click', function() {
+    setDifficulty(btn.dataset.diff);
+  });
+});
 
 // ============================================================
 // INIT / RESET
 // ============================================================
 function initGame() {
+  // Set initial tick speed from difficulty
+  currentTickMs = DIFFICULTY_SPEEDS[selectedDifficulty] || DIFFICULTY_SPEEDS['medium'];
+  foodsEaten = 0;
+
   // Snake starts in the middle, 3 segments, moving right
   const midX = Math.floor(COLS / 2);
   const midY = Math.floor(ROWS / 2);
@@ -259,12 +376,12 @@ function initGame() {
 // ============================================================
 function spawnFood() {
   // Pick a random floor tile not occupied by the snake
-  const occupied = new Set(snake.map(s => s.x + ',' + s.y));
+  const occupied = new Set(snake.map(function(s) { return s.x + ',' + s.y; }));
   const freeTiles = [];
   for (let x = 0; x < COLS; x++) {
     for (let y = 0; y < ROWS; y++) {
       if (!occupied.has(x + ',' + y)) {
-        freeTiles.push({ x, y });
+        freeTiles.push({ x: x, y: y });
       }
     }
   }
@@ -315,11 +432,17 @@ btnBackStart.addEventListener('click', goBack);
 btnBackOver.addEventListener('click', goBack);
 
 function startGame() {
+  // Check restart cooldown
+  if (Date.now() < restartCooldown) {
+    return; // still cooling down
+  }
+
   overlayStart.classList.add('hidden');
   overlayOver.classList.add('hidden');
+  cooldownEl.classList.add('hidden');
   initGame();
   clearInterval(gameInterval);
-  gameInterval = setInterval(gameTick, TICK_MS);
+  gameInterval = setInterval(gameTick, currentTickMs);
 }
 
 function goBack() {
@@ -336,7 +459,7 @@ function gameTick() {
   direction = nextDirection;
 
   // Calculate new head position
-  const head = { ...snake[0] };
+  const head = { x: snake[0].x, y: snake[0].y };
   switch (direction) {
     case 'up':    head.y--; break;
     case 'down':  head.y++; break;
@@ -364,7 +487,15 @@ function gameTick() {
   // Check food
   if (head.x === food.x && head.y === food.y) {
     score++;
+    foodsEaten++;
     updateScoreDisplay();
+
+    // Speed progression: decrease tick interval, minimum 60ms
+    currentTickMs = Math.max(MIN_TICK_MS, currentTickMs - SPEED_DECREASE);
+    // Restart interval with new speed
+    clearInterval(gameInterval);
+    gameInterval = setInterval(gameTick, currentTickMs);
+
     spawnFood();
   } else {
     // Remove tail to maintain length
@@ -381,6 +512,9 @@ function gameOver() {
   running = false;
   clearInterval(gameInterval);
 
+  // Set restart cooldown
+  restartCooldown = Date.now() + RESTART_COOLDOWN_MS;
+
   // Check for new high score
   const isNewRecord = score > highScore;
   if (isNewRecord) {
@@ -396,8 +530,27 @@ function gameOver() {
   finalScore.textContent = 'Score: ' + score;
   overlayOver.classList.remove('hidden');
 
+  // Show cooldown message
+  cooldownEl.classList.remove('hidden');
+
+  // Start countdown timer for cooldown
+  startCooldownCountdown();
+
   // One last render to show the dead snake
   render();
+}
+
+function startCooldownCountdown() {
+  // Update every 100ms until cooldown expires
+  const countdown = setInterval(function() {
+    const remaining = Math.ceil((restartCooldown - Date.now()) / 1000);
+    if (remaining <= 0) {
+      clearInterval(countdown);
+      cooldownEl.classList.add('hidden');
+    } else {
+      cooldownEl.textContent = 'Vent venligst... (' + remaining + 's)';
+    }
+  }, 100);
 }
 
 // ============================================================
